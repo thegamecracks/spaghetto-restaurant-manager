@@ -1,5 +1,8 @@
-from src import Item
-from src import utils
+from pathlib import Path
+
+from src import Business, Manager
+
+SAVE_BUSINESS = 'business.json'
 
 
 def get_total_cost(inventory):
@@ -12,22 +15,12 @@ def get_total_cost(inventory):
 
 
 def main():
-    ice_cream = Item('Vanilla Ice Cream', 4, 'cup', 480)
-    cheese = Item('Cheese', 300, 'gram', 400)
+    if Path(SAVE_BUSINESS).is_file():
+        manager = Manager.from_filepath(SAVE_BUSINESS)
+    else:
+        manager = Manager(Business(), filepath=SAVE_BUSINESS)
 
-    inventory = {
-        ice_cream,
-        cheese
-    }
-
-    total_cost = get_total_cost(inventory)
-    print(utils.cents_string(total_cost))
-
-    # Add another cup of ice cream
-    ice_cream += Item('Vanilla Ice Cream', 1, 'cup', 120)
-
-    total_cost = get_total_cost(inventory)
-    print(utils.cents_string(total_cost))
+    manager.run()
 
 
 if __name__ == '__main__':

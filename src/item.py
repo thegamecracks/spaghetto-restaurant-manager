@@ -21,6 +21,9 @@ class Item:
         price (int): The cost of the entire item at its quantity.
 
     """
+
+    name = None  # this class variable's here just to make the linter stop complaining
+
     def __init__(self, name, quantity, unit, price):
         super().__setattr__('name', name)
         self.quantity = quantity
@@ -122,3 +125,11 @@ class Item:
                 )
             )
         return self
+
+    def to_dict(self):
+        return {'name': self.name, 'quantity': self.quantity,
+                'unit': self.unit, 'price': self.price}
+
+    @classmethod
+    def from_dict(cls, d):
+        return cls(d['name'], d['quantity'], d['unit'], d['price'])
