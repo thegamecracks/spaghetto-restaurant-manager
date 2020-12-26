@@ -2,6 +2,7 @@
 and provides methods for serializing to JSON and back."""
 from dataclasses import dataclass
 import datetime
+import io
 import json
 
 from src.inventory import Inventory
@@ -101,7 +102,25 @@ class Business:
                 'transactions': [t.to_dict() for t in self.transactions]}
 
     def to_file(self, f):
-        json.dump(self.to_dict(), f, cls=JSONEncoder, indent=4)
+        """Save the business data to a file-like object or filepath.
+
+        Note that it is recommended to provide a filepath instead of manually
+        opening the file in write mode because that erases the file's contents.
+        If an error occurs during serialization, the save file will be
+        permanently lost.
+
+        """
+        if isinstance(f, io.BufferedReader):
+            raise ValueError('Cannot write to file in binary mode')
+
+        text = json.dumps(self.to_dict(), cls=JSONEncoder, indent=4)
+
+        if isinstance(f, str):
+            with open(f, 'w', encoding='utf-8') as f:
+                f.write(text)
+        else:
+            # File-like object
+            f.write(text)
 
     @classmethod
     def from_dict(cls, d):

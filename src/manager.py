@@ -252,6 +252,8 @@ class Manager:
     def start_transaction(self):
         """This is a context manager that can be used to automatically
         save the business data when exiting the context.
+        This allows the data to be saved regardless if an exception occurs
+        or the user closes the program unconventionally.
 
         Usage:
             >>> with manager.start_transaction():
@@ -309,8 +311,7 @@ class Manager:
         """Save the business to `filepath`.
         Defaults to `self.filepath` if no filepath is provided."""
         filepath = filepath or self.filepath
-        with open(filepath, 'w', encoding='utf-8') as f:
-            self.business.to_file(f)
+        self.business.to_file(filepath)
 
     def reload_business(self, filepath=None):
         """Reload the business's data from `filepath`.
