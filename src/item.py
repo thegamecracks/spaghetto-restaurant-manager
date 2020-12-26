@@ -1,3 +1,10 @@
+__all__ = ['Item']
+
+
+def plural(s: str, n: int, suffix='s'):
+    return s + suffix * (n != 1)
+
+
 class Item:
     """An inventory item.
 
@@ -37,7 +44,11 @@ class Item:
         )
 
     def __str__(self):
-        return f'{self.quantity} {self.name}'
+        return '{q} {u} of {n}'.format(
+            q=self.quantity,
+            u=plural(self.unit, self.quantity),
+            n=self.name
+        )
 
     def __hash__(self):
         return hash((self.__class__, self.name))

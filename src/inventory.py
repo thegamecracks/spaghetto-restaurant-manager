@@ -41,7 +41,7 @@ class Inventory:
         return item in self._items
 
     def __iter__(self):
-        return iter(self._items)
+        return iter(self._items.values())
 
     def __len__(self):
         return len(self._items)
@@ -74,7 +74,7 @@ class Inventory:
 
     def get(self, key, default=None):
         """Return the value for key if key is in the dictionary, else default."""
-        return self._items.get(key, default=default)
+        return self._items.get(key, default)
 
     def pop(self, key, default=_DEFAULT):
         """Remove and return an Item from the inventory.
