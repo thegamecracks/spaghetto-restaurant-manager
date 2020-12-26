@@ -12,8 +12,11 @@ class JSONEncoder(json.JSONEncoder):
     def default(self, o):
         if isinstance(o, datetime.datetime):
             return o.isoformat()
-        else:
-            return super().default(o)
+        elif hasattr(o, 'to_dict'):
+            return o.to_dict()
+        elif hasattr(o, 'to_list'):
+            return o.to_list()
+        return super().default(o)
 
 
 def object_hook(d: dict):

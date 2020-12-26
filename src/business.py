@@ -29,7 +29,7 @@ class Business:
     Args:
         balance (Optional[int]): The business's balance in cents.
         inventory (Optional[Inventory]): The inventory of the business.
-        transactions (Optional[List[Dictionary]]):
+        transactions (Optional[List[Transaction]]):
             The list of transactions the business has done.
 
     """
@@ -98,8 +98,9 @@ class Business:
         return query
 
     def to_dict(self):
-        return {'balance': self.balance, 'inventory': self.inventory.to_list(),
-                'transactions': [t.to_dict() for t in self.transactions]}
+        # return {'balance': self.balance, 'inventory': self.inventory,
+        #         'transactions': self.transactions}
+        return self.__dict__
 
     def to_file(self, f):
         """Save the business data to a file-like object or filepath.
@@ -122,17 +123,21 @@ class Business:
             # File-like object
             f.write(text)
 
-    @classmethod
-    def from_dict(cls, d):
+    @staticmethod
+    def _from_dict_deserialize(d):
         balance = d.get('balance')
         inventory = d.get('inventory')
         if inventory is not None:
-            inventory = Inventory.from_list(inventory)
+            d['inventory'] = Inventory.from_list(inventory)
         transactions = d.get('transactions')
         if transactions is not None:
-            transactions = [Transaction.from_dict(d) for d in transactions]
+            d['transactions'] = [
+                Transaction.from_dict(d) for d in transactions]
+        return d
 
-        return cls(balance, inventory, transactions)
+    @classmethod
+    def from_dict(cls, d):
+        return cls(**cls._from_dict_deserialize(d))
 
     @classmethod
     def from_file(cls, f):

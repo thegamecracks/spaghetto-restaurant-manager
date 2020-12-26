@@ -1,8 +1,6 @@
+from .utils import plural
+
 __all__ = ['Item']
-
-
-def plural(s: str, n: int, suffix='s'):
-    return s + suffix * (n != 1)
 
 
 class Item:
@@ -31,7 +29,7 @@ class Item:
 
     name = None  # this class variable's here just to make the linter stop complaining
 
-    def __init__(self, name, quantity, unit, price):
+    def __init__(self, name, quantity, unit, price=0):
         super().__setattr__('name', name)
         self.quantity = quantity
         self.unit = unit
@@ -136,6 +134,9 @@ class Item:
                 )
             )
         return self
+
+    def copy(self):
+        return self.__class__(self.name, self.quantity, self.unit, self.price)
 
     def to_dict(self):
         return {'name': self.name, 'quantity': self.quantity,

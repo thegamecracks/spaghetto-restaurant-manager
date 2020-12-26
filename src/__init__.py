@@ -3,10 +3,14 @@ from . import jsonencoder
 from . import manager
 from . import inventory
 from . import item
+from . import restaurant
+from . import restaurantmanager
 from . import utils
 from .business import *
 from .jsonencoder import *
 from .manager import *
 from .inventory import *
 from .item import *
+from .restaurant import *
+from .restaurantmanager import *
 from .utils import *

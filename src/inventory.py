@@ -1,4 +1,5 @@
-from src.item import Item
+from .item import Item
+from . import utils
 
 
 class Inventory:
@@ -72,13 +73,29 @@ class Inventory:
         """
         self._items.pop(key, None)
 
-    def get(self, key, default=None):
-        """Return the value for key if key is in the dictionary, else default."""
+    def find(self, key: str, default=None) -> Item:
+        """Find an item that starts with the given name. Similar to get()."""
+        names = list(self._items)
+        search = utils.fuzzy_match_word(key, names)
+        return self.get(search) if search is not None else None
+
+    def get(self, key: str, default=None) -> Item:
+        """Return the value for key if key is in the dictionary, else default.
+
+        Returns:
+            Item
+            None
+
+        """
         return self._items.get(key, default)
 
-    def pop(self, key, default=_DEFAULT):
+    def pop(self, key, default=_DEFAULT) -> Item:
         """Remove and return an Item from the inventory.
         If key is not found, default is returned if given, else KeyError is raised.
+
+        Returns:
+            Item
+            `default`
 
         """
         if default is self._DEFAULT:
@@ -97,7 +114,7 @@ class Inventory:
             del self._items[key.name]
 
     def to_list(self):
-        return [v.to_dict() for v in self._items.values()]
+        return [v for v in self._items.values()]
 
     @classmethod
     def from_list(cls, list_):
