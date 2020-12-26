@@ -57,29 +57,6 @@ def input_integer(prompt, minimum=None, maximum=None):
     return result
 
 
-def parse_decimal(s: str):
-    """Parse a decimal number into its whole and decimal parts.
-
-    Returns:
-        Tuple[int, int]
-
-    """
-    # Find the decimal point (and assert there aren't multiple points)
-    point = s.find('.')
-    if point == -1:
-        point = len(s)
-    elif s.count('.') > 1:
-        raise ValueError('Too many decimal points')
-
-    # Separate the whole and decimal part ("3", "14"),
-    whole, decimal = s[:point], s[point+1:]
-    whole = whole if whole else 0
-    decimal = decimal if decimal else 0
-
-    # Parse into integers and return them as a tuple
-    return int(whole), int(decimal)
-
-
 def input_money(prompt, minimum=None, maximum=None):
     """Accurately parse a decimal number in dollars into cents.
 
@@ -94,10 +71,9 @@ def input_money(prompt, minimum=None, maximum=None):
     """
     def parse(s):
         try:
-            whole, decimal = parse_decimal(s)
+            cents = utils.parse_money(s)
         except ValueError:
             return 'Could not parse your amount: $'
-        cents = whole * 100 + decimal
         if minimum is not None and cents < minimum:
             return f'Must be above {minimum:,}: $'
         elif maximum is not None and cents > maximum:
