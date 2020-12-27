@@ -178,20 +178,20 @@ class RestaurantManagerCLIDishes(RestaurantManagerCLIBase, ManagerCLISubCMDBase)
         name = input('What is the name of your new dish? ').strip()
         if not name:
             print('Cancelled creation.')
-
-        # Input items
-        requirements = []
-        print('What items does your dish use?')
-        i = 1
-        item = input_item()
-        while item is not None:
-            requirements.append(item)
-            i += 1
+        if name:
+            # Input items
+            requirements = []
+            print('What items does your dish use?')
+            i = 1
             item = input_item()
+            while item is not None:
+                requirements.append(item)
+                i += 1
+                item = input_item()
 
-        # Add dish
-        self.manager.add_dish(name, requirements)
-        print('Your dish has been created!')
+            # Add dish
+            self.manager.add_dish(name, requirements)
+            print('Your dish has been created!')
 
     def do_list(self, arg):
         """List the dishes on the menu."""
