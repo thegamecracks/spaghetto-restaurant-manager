@@ -40,8 +40,7 @@ class Manager:
         """Setup the business's balance and inventory if they are None."""
         business = self.business
         if business.balance is None:
-            business.balance = input_money(
-                "What is your business's current balance? $")
+            pass
 
         if business.inventory is None:
             print("Let's set up your business's current inventory!")
@@ -124,15 +123,6 @@ class ManagerCLIBase(cmd.Cmd):
             'Usage: ?[cmd/topic]'
         )
 
-    def postcmd(self, stop, line):
-        """Called after a command dispatch is finished.
-        Prints a message if the business's balance is negative."""
-        balance = self.manager.business.balance
-        if balance < 0:
-            print("Warning: the business's balance is negative! "
-                  f'({utils.format_cents(balance)})')
-        return stop
-
 
 class ManagerCLISubCMDBase(ManagerCLIBase):
     def do_back(self, arg):
@@ -143,7 +133,7 @@ class ManagerCLISubCMDBase(ManagerCLIBase):
 class ManagerCLIMain(ManagerCLIBase):
     def do_balance(self, arg):
         """Display your business's balance."""
-        balance = self.manager.business.balance
+        balance = Business.balance
         print(f"Your business's balance is {utils.format_cents(balance)}.")
 
     def do_exit(self, arg):

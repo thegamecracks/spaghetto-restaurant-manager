@@ -14,3 +14,5 @@ from .item import *
 from .restaurant import *
 from .restaurantmanager import *
 from .utils import *
+from .managergui import *
+from .winlayouts import *

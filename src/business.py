@@ -33,6 +33,8 @@ class Business:
             The list of transactions the business has done.
 
     """
+    print("h")
+    balance = None
 
     def __init__(self, balance=None, inventory=None, transactions=None):
         self.balance = balance
