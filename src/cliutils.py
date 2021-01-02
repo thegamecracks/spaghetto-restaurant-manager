@@ -1,3 +1,5 @@
+import decimal
+
 from . import utils
 
 
@@ -24,8 +26,8 @@ def input_integer(prompt, minimum=None, maximum=None):
 
     Args:
         prompt (str): The initial message to prompt the user.
-        minimum (Optional[int]): The minimum value in cents (inclusive).
-        maximum (Optional[int]): The maximum value in cents (inclusive).
+        minimum (Optional[int]): The minimum value (inclusive).
+        maximum (Optional[int]): The maximum value (inclusive).
 
     """
     def parse(s):
@@ -45,28 +47,35 @@ def input_integer(prompt, minimum=None, maximum=None):
     return result
 
 
-def input_money(prompt, minimum=None, maximum=None) -> int:
-    """Accurately parse a decimal number in dollars into cents.
+def input_money(prompt, minimum=None, maximum=None) -> decimal.Decimal:
+    """Accurately parse a decimal number in dollars into a Decimal.
 
     Args:
         prompt (str)
-        minimum (Optional[int]): The minimum value in cents (inclusive).
-        maximum (Optional[int]): The maximum value in cents (inclusive).
+        minimum (Optional[numbers.Rational]):
+            The minimum value in dollars (inclusive).
+        maximum (Optional[numbers.Rational]):
+            The maximum value in dollars (inclusive).
 
     Returns:
-        int
+        decimal.Decimal
 
     """
     def parse(s):
         try:
-            cents = utils.parse_money(s)
+            dollars = utils.parse_dollars(s)
         except ValueError:
             return 'Could not parse your amount: $'
-        if minimum is not None and cents < minimum:
+        if minimum is not None and dollars < minimum:
             return f'Must be above {minimum:,}: $'
-        elif maximum is not None and cents > maximum:
+        elif maximum is not None and dollars > maximum:
             return f'Must be below {maximum:,}: $'
-        return cents
+        return dollars
+
+    if minimum is not None:
+        minimum = decimal.Decimal(minimum)
+    if maximum is not None:
+        maximum = decimal.Decimal(maximum)
 
     result = parse(input(prompt))
     while isinstance(result, str):

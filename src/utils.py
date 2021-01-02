@@ -1,4 +1,10 @@
-import itertools
+import decimal
+
+
+def round_dollars(d) -> decimal.Decimal:
+    """Round a number-like object to the nearest cent."""
+    cent = decimal.Decimal('0.01')
+    return decimal.Decimal(d).quantize(cent, rounding=decimal.ROUND_HALF_UP)
 
 
 def case_preserving_replace(text, target, replacement, count=None):
@@ -19,9 +25,17 @@ def case_preserving_replace(text, target, replacement, count=None):
     return text
 
 
-def format_cents(cents):
+def format_cents(cents: int):
     sign = '-' if cents < 0 else ''
     return '{}${}.{:02d}'.format(sign, abs(cents) // 100, abs(cents) % 100)
+
+
+def format_dollars(dollars: decimal.Decimal):
+    dollars = round_dollars(dollars)
+    sign = '-' if dollars < 0 else ''
+    dollar_part = abs(int(dollars))
+    cent_part = abs(int(dollars % 1 * 100))
+    return '{}${}.{:02d}'.format(sign, dollar_part, cent_part)
 
 
 def fuzzy_match_word(s: str, choices: list, return_possible=False) -> str:
@@ -82,6 +96,7 @@ def parse_decimal(s: str) -> tuple:
         ValueError
 
     """
+    s = s.replace(',', '')
     # Find the decimal point (and assert there aren't multiple points)
     point = s.find('.')
     if point == -1:
@@ -98,7 +113,7 @@ def parse_decimal(s: str) -> tuple:
     return int(whole), int(decimal)
 
 
-def parse_money(s: str) -> int:
+def parse_cents(s: str) -> int:
     """Parse a decimal number into cents.
 
     Returns:
@@ -108,12 +123,22 @@ def parse_money(s: str) -> int:
         ValueError
 
     """
-    whole, decimal = parse_decimal(s)
-    if decimal >= 100:
+    whole, rational = parse_decimal(s)
+    if rational >= 100:
         raise ValueError('Cannot exceed decimal precision of 2 '
                          '(over 99 cents)')
-    cents = whole * 100 + decimal
+    cents = whole * 100 + rational
     return cents
+
+
+def parse_dollars(s: str) -> decimal.Decimal:
+    """Parse a decimal number into Decimal."""
+    whole, rational = parse_decimal(s)
+    if rational >= 100:
+        raise ValueError('Cannot exceed decimal precision of 2 '
+                         '(over 99 cents)')
+    # Pad with trailing zeros
+    return decimal.Decimal(f'{whole}.{rational:<02d}')
 
 
 def plural(s: str, n: int = 2, suffix='s'):
