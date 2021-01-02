@@ -1,48 +1,48 @@
-from .utils import plural
+from dataclasses import asdict, dataclass, field, replace
+import decimal
+
+from .utils import plural, round_dollars
 
 __all__ = ['Item']
 
 
+@dataclass
 class Item:
-    """An inventory item.
+    """A general purpose item, consisting of a name, quantity, unit,
+    and total price.
 
     This data type uses the hash of its name, allowing it to work in sets
     and remain unique based on name.
 
     Items with the same name and unit can be added or subtracted from each
     other as such:
-        >>> x = Item('Foo', 1, 'gram', 50)
-        >>> y = Item('Foo', 1000, 'gram', 1000)
+        >>> x = Item('Foo', 1, 'gram', '0.50')
+        >>> y = Item('Foo', 1000, 'gram', '10')
         >>> x + y
-        Item('Foo', 1001, 'gram', 1050)
+        Item('Foo', 1001, 'gram', Decimal('10.50'))
         >>> y -= x
         >>> y
-        Item('Foo', 999, 'gram', 950)
+        Item('Foo', 999, 'gram', Decimal('9.50'))
 
     Args:
         name (str)
         quantity (int)
         unit (str): The unit that the quantity represents.
-        price (int): The cost of the entire item at its quantity.
+        price (decimal.Decimal):
+            The cost of the entire item at its quantity in dollars.
+            This field is automatically casted into decimal.Decimal.
 
     """
+    name: str
+    quantity: int = field(compare=False)
+    unit: str = field(compare=False)
+    price: decimal.Decimal = field(default_factory=decimal.Decimal, compare=False)
 
-    name = None  # this class variable's here just to make the linter stop complaining
-
-    def __init__(self, name, quantity, unit, price=0):
-        super().__setattr__('name', name)
-        self.quantity = quantity
-        self.unit = unit
-        self.price = price
-
-    def __repr__(self):
-        return '{}({!r}, {!r}, {!r}, {!r})'.format(
-            self.__class__.__name__, self.name, self.quantity,
-            self.unit, self.price
-        )
+    def __post_init__(self):
+        self.price = round_dollars(decimal.Decimal(self.price))
 
     def __str__(self):
-        return '{q} {u} of {n}'.format(
+        return '{q:,} {u} of {n}'.format(
             q=self.quantity,
             u=plural(self.unit, self.quantity),
             n=self.name
@@ -50,20 +50,6 @@ class Item:
 
     def __hash__(self):
         return hash((self.__class__, self.name))
-
-    def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return self.name == other.name
-        return NotImplemented
-
-    def __setattr__(self, key, value):
-        if key == 'name':
-            raise AttributeError('name cannot be changed after instantiation')
-        elif key in ('quantity', 'price') and not isinstance(value, int):
-            raise AttributeError(
-                f'expected type int for {key} but received a {type(value)}')
-        else:
-            super().__setattr__(key, value)
 
     def __add__(self, other):
         if isinstance(other, self.__class__):
@@ -135,13 +121,12 @@ class Item:
             )
         return self
 
-    def copy(self):
-        return self.__class__(self.name, self.quantity, self.unit, self.price)
+    def copy(self, **kwargs):
+        return replace(self, **kwargs)
 
     def to_dict(self):
-        return {'name': self.name, 'quantity': self.quantity,
-                'unit': self.unit, 'price': self.price}
+        return asdict(self)
 
     @classmethod
-    def from_dict(cls, d):
-        return cls(d['name'], d['quantity'], d['unit'], d['price'])
+    def from_dict(cls, d: dict):
+        return cls(**d)

@@ -2,6 +2,8 @@ import json
 from pathlib import Path
 
 from src import Restaurant, RestaurantManager
+from src import InventoryItem, Item
+from src import utils
 
 SAVE_BUSINESS = 'business.json'
 
@@ -13,7 +15,7 @@ def main():
         except json.JSONDecodeError as e:
             print('Failed to load save file:\n error during parsing at '
                   f'line {e.lineno}, column {e.colno}')
-            input('Your save file may be improperly modified. Please '
+            input('Your save file may be corrupted. Please '
                   'correct any manual changes you have done if so.\n')
             return
     else:

@@ -1,6 +1,5 @@
 from .cliutils import input_boolean, input_integer, input_money
 from .dish import Dish
-from .dishmenu import DishMenu
 from .item import Item
 from .inventory import Inventory
 from .manager import (Manager, ManagerCLIBase, ManagerCLIMain,
@@ -21,6 +20,7 @@ def is_integer(s: str) -> bool:
 
 class RestaurantManager(Manager):
     """A manager for a restaurant."""
+    business: Restaurant
 
     def __init__(self, business: Restaurant, *args, **kwargs):
         super().__init__(business, *args, **kwargs)
@@ -31,9 +31,9 @@ class RestaurantManager(Manager):
         ... """
         return {i: dish for i, dish in enumerate(self.business.dishes, start=1)}
 
-    def add_dish(self, name: str, items: list) -> Dish:
+    def add_dish(self, *args, **kwargs) -> Dish:
         """Helper function for adding a dish."""
-        dish = Dish(name, items)
+        dish = Dish(*args, **kwargs)
         self.business.dishes.add(dish)
         return dish
 
@@ -123,7 +123,7 @@ class RestaurantManagerCLIDishes(RestaurantManagerCLIBase, ManagerCLISubCMDBase)
                          '(check capitalization and spelling)')
 
     def input_dish(self, prompt: str, *, cancellable=False) -> Dish:
-        """Prompt the user for a dish.
+        """Prompt the user for an existing dish.
 
         Args:
             prompt (str): The initial message to show the user.
@@ -189,12 +189,17 @@ class RestaurantManagerCLIDishes(RestaurantManagerCLIBase, ManagerCLISubCMDBase)
             i += 1
             item = input_item()
 
+        price = input_money('How much should this dish cost? $', minimum=0)
+
         # Add dish
-        self.manager.add_dish(name, requirements)
+        self.manager.add_dish(name, requirements, price)
         print('Your dish has been created!')
 
     def do_list(self, arg):
         """List the dishes on the menu."""
+        if not self.manager.business.dishes:
+            return print('Your menu currently has no dishes.')
+
         print('Menu:')
         for i, dish in self.manager.dish_mapping().items():
             print(f'{i:,}: {dish}')
@@ -202,6 +207,9 @@ class RestaurantManagerCLIDishes(RestaurantManagerCLIBase, ManagerCLISubCMDBase)
     def do_remove(self, arg):
         """Remove a dish by name.
 Usage: remove [name_or_index]"""
+        if not self.manager.business.dishes:
+            return print('Your menu currently has no dishes.')
+
         arg = arg.strip()
 
         if arg:
@@ -226,6 +234,9 @@ Usage: remove [name_or_index]"""
     def do_show(self, arg):
         """Show the requirements for a dish.
 Usage: show [name_or_index]"""
+        if not self.manager.business.dishes:
+            return print('Your menu currently has no dishes.')
+
         arg = arg.strip()
 
         if arg:
@@ -241,6 +252,16 @@ Usage: show [name_or_index]"""
                 return print('Cancelled.')
 
         print(dish)
+        print('Price:', utils.format_dollars(dish.price))
+        if dish.sales is not None:
+            revenue = dish.revenue
+            expenses = dish.expenses
+            print("Last month's sales:", dish.sales)
+            print('Revenue:', utils.format_dollars(revenue))
+            print('Expenses:', utils.format_dollars(expenses))
+            print('Profit:', utils.format_dollars(revenue - expenses))
+        else:
+            print("Last month's sales: N/A")
         print('Ingredients:')
         for i in dish.items:
             print(i)
