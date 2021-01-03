@@ -5,6 +5,8 @@ from .item import Item
 from .inventoryitem import InventoryItem
 from . import utils
 
+__all__ = ['Inventory']
+
 
 class Inventory(InventoryBase):
     """An inventory of items with unique names.
@@ -38,10 +40,9 @@ class Inventory(InventoryBase):
             Item objects are automatically converted into InventoryItems.
 
     """
-
     _DEFAULT = object()
     _INV_TYPE = InventoryItem
-    _items: Dict[str, InventoryItem]
+    _items: Dict[str, _INV_TYPE]
 
     def __init__(self, items: Iterable[Union[_INV_TYPE, Item]] = ()):
         _items = {}
@@ -50,54 +51,23 @@ class Inventory(InventoryBase):
             _items[i.name] = i
         self._items = _items
 
-    def __repr__(self):
-        return '{}({!r})'.format(
-            self.__class__.__name__,
-            [i for i in self._items]
-        )
-
     def add(self, item: Union[_INV_TYPE, Item]):
-        """Add an Item to the inventory.
-
-        This has no effect if the item is already present.
-
-        """
         if item.name not in self:
             self._items[item.name] = self.cast_to_inv_type(item)
 
     def discard(self, key: str):
-        """Remove an Item from the inventory if it exists, by name.
-
-        If the item does not exist in the inventory, does nothing.
-
-        """
         self._items.pop(key, None)
 
     def find(self, key: str, default=None) -> _INV_TYPE:
-        """Find an item that starts with the given name. Similar to get()."""
+        """Find an item that fuzzy matches the given name. Similar to get()."""
         names = list(self._items)
         search = utils.fuzzy_match_word(key, names)
         return self.get(search, default) if search is not None else default
 
     def get(self, key: str, default=None) -> _INV_TYPE:
-        """Return the value for key if key is in the dictionary, else default.
-
-        Returns:
-            Item
-            None
-
-        """
         return self._items.get(key, default)
 
     def pop(self, key, default=_DEFAULT) -> _INV_TYPE:
-        """Remove and return an Item from the inventory.
-        If key is not found, default is returned if given, else KeyError is raised.
-
-        Returns:
-            Item
-            `default`
-
-        """
         if default is self._DEFAULT:
             return self._items.pop(key)
         return self._items.pop(key, default)
@@ -110,7 +80,7 @@ class Inventory(InventoryBase):
         return cls(cls._INV_TYPE.from_dict(d) for d in list_)
 
     @classmethod
-    def cast_to_inv_type(cls, obj):
+    def cast_to_inv_type(cls, obj) -> _INV_TYPE:
         if isinstance(obj, cls._INV_TYPE):
             return obj
         elif isinstance(obj, Item):

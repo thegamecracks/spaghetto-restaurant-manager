@@ -11,15 +11,22 @@ from .business import Business
 from .cliutils import input_integer, input_money
 from .inventory import Inventory
 from .item import Item
+from .loanmenu import LoanMenu
 from .transaction import Transaction
 
 __all__ = ['Manager']
 
 
 class Manager:
-    def __init__(self, business: Business, filepath: str = None):
+    _TYPE = Business
+    RANDOM_LOANS = 8
+
+    def __init__(self, business: Business, loan_menu: LoanMenu = None,
+                 filepath: str = None, encrypted=False):
         self.business = business
+        self.loan_menu = loan_menu
         self.filepath = filepath
+        self.encrypted = encrypted
 
     @contextlib.contextmanager
     def start_transaction(self):
@@ -55,13 +62,14 @@ class Manager:
             print("(if you intend to buy new items using your balance, skip this part)")
             self.setup_inventory()
 
+        if self.loan_menu is None:
+            self.loan_menu = LoanMenu.from_random(self.RANDOM_LOANS)
         self.business.generate_metadata()
 
     @classmethod
-    def from_filepath(cls, filepath):
-        with open(filepath, encoding='utf-8') as f:
-            business = Business.from_file(f)
-        return cls(business, filepath=filepath)
+    def from_filepath(cls, filepath, *, encrypted=False):
+        business = cls._TYPE.from_file(filepath)
+        return cls(business, filepath=filepath, encrypted=encrypted)
 
     def setup_inventory(self):
         """Setup the business's inventory."""
@@ -91,14 +99,14 @@ class Manager:
         """Save the business to `filepath`.
         Defaults to `self.filepath` if no filepath is provided."""
         filepath = filepath or self.filepath
-        self.business.to_file(filepath)
+        self.business.to_file(filepath, encrypted=self.encrypted)
 
     def reload_business(self, filepath=None):
         """Reload the business's data from `filepath`.
         Defaults to `self.filepath` if no filepath is provided."""
         filepath = filepath or self.filepath
         with open(filepath, encoding='utf-8') as f:
-            self.business = type(self.business).from_file(f)
+            self.business = self._TYPE.from_file(f)
 
     def run(self):
         """Start the user interface.
@@ -151,11 +159,6 @@ class ManagerCLISubCMDBase(ManagerCLIBase):
 
 
 class ManagerCLIMain(ManagerCLIBase):
-    def do_balance(self, arg):
-        """Display your business's balance."""
-        balance = self.manager.business.balance
-        print(f"Your business's balance is {utils.format_dollars(balance)}.")
-
     def do_exit(self, arg):
         """Exit the program. This automatically saves your data."""
         return True
@@ -294,10 +297,15 @@ class ManagerCLIFinances(ManagerCLISubCMDBase):
         # Print transactions
         for w, d, t in zip(weeks, dollars, transactions):
             print('{week} : {dollars} : {title}'.format(
-                week=f'{w:{week_longest}}',
-                dollars=f'{d:{dollars_longest}}',
+                week=f'{w:>{week_longest}}',
+                dollars=f'{d:>{dollars_longest}}',
                 title=t.title
             ))
+
+    def do_balance(self, arg):
+        """Display your business's balance."""
+        balance = self.manager.business.balance
+        print(f"Your business's balance is {utils.format_dollars(balance)}.")
 
     def do_employees(self, arg):
         """View and modify the number of employees in your business."""
@@ -308,8 +316,7 @@ class ManagerCLIFinances(ManagerCLISubCMDBase):
         """View the current and last month's expenses."""
         business = self.manager.business
         after = business.total_weeks - business.total_weeks % 4 - 4
-        transactions = business.get_transactions(
-            after=after, key=lambda t: t.dollars < 0)
+        transactions = business.get_transactions(after=after, key=lambda t: t.dollars < 0)
 
         if not transactions:
             return print('There are no recent expenses.')
@@ -326,12 +333,15 @@ class ManagerCLIFinances(ManagerCLISubCMDBase):
 
         self.print_transactions(transactions)
 
+    def do_loans(self, arg):
+        """View the business's loans."""
+        # TODO: Loan sub-interface
+
     def do_revenue(self, arg):
         """View the current and last month's income transactions."""
         business = self.manager.business
         after = business.total_weeks - business.total_weeks % 4 - 4
-        transactions = self.manager.business.get_transactions(
-            key=lambda t: t.dollars > 0)
+        transactions = self.manager.business.get_transactions(key=lambda t: t.dollars > 0)
 
         if not transactions:
             return print('There are no recent income transactions.')

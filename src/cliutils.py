@@ -2,6 +2,8 @@ import decimal
 
 from . import utils
 
+__all__ = ['input_boolean', 'input_money', 'input_integer']
+
 
 def input_boolean(prompt):
     def parse(s):

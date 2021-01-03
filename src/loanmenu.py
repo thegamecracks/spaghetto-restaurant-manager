@@ -1,16 +1,16 @@
 from typing import Dict, Iterable
 
-from .dish import Dish
 from .inventory import Inventory
+from .loan import Loan
 
-__all__ = ['DishMenu']
+__all__ = ['LoanMenu']
 
 
-class DishMenu(Inventory):
-    """A subclass of Inventory designed for dishes."""
+class LoanMenu(Inventory):
+    """A subclass of Inventory designed for loans."""
     _DEFAULT = object()
-    _INV_TYPE = Dish
-    _items: Dict[str, _INV_TYPE]
+    _INV_TYPE = Loan
+    _items: Dict[str, Loan]
 
     def __init__(self, items: Iterable[_INV_TYPE] = ()):
         super().__init__(items)
@@ -42,3 +42,8 @@ class DishMenu(Inventory):
             f'Expected object of type {cls._INV_TYPE.__name__} '
             f'but received {obj!r} of type {type(obj).__name__}'
         )
+
+    @classmethod
+    def from_random(cls, length: int):
+        """Create a LoanMenu with randomly generated loans."""
+        return cls()

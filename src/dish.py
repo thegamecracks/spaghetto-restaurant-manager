@@ -4,6 +4,8 @@ from typing import List
 
 from .item import Item
 
+__all__ = ['Dish']
+
 
 @dataclass
 class Dish:
@@ -20,13 +22,13 @@ class Dish:
     """
     name: str
     items: List[Item] = field(default_factory=list, hash=False)
-    price: decimal.Decimal = field(default_factory=decimal.Decimal, hash=False)
+    price: decimal.Decimal = field(default=decimal.Decimal(), hash=False)
     sales: int = field(default=None, hash=False)
     expenses_items: List[Item] = field(default_factory=list, hash=False)
 
     def __post_init__(self):
         for i in self.items:
-            i.price = 0
+            i.price = decimal.Decimal()
 
     def __hash__(self):
         return hash((self.__class__, self.name))

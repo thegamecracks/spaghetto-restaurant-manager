@@ -9,6 +9,9 @@ from typing import Optional, Dict, Tuple
 from .business import Business
 from .dishmenu import DishMenu
 from .dish import Dish
+from .transactiontype import TransactionType
+
+__all__ = ['Restaurant']
 
 
 @dataclass(order=False)
@@ -52,9 +55,51 @@ class Restaurant(Business):
         popularity = 1000 / (1 + 2.15 * math.e ** (-(3 / 1250000) * dollars)) ** 2
         return max(100., popularity)
 
+    def cost_of_dish(self, dish: Dish, n: int, average=False,
+                     lowest_first=True):
+        """Return the cost it takes to create some number of this dish.
+
+        Args:
+            dish (Dish): The dish to get the cost of its ingredients.
+            n (int): The number of this dish.
+            average (bool): If True, uses the average costs of
+                the dish's items in the inventory.
+            lowest_first (bool): If True and `average` is False,
+                uses the cheapest purchases in inventory first.
+
+        Returns:
+            decimal.Decimal
+
+        Raises:
+            ValueError: Either n is greater than the quantity of one of
+                the inventory items; a requirement is missing from
+                the inventory; or one of the inventory items was empty.
+
+        """
+        cost = decimal.Decimal()
+
+        for i in dish.items:
+            inv_item = self.inventory[i.name]
+
+            if average:
+                try:
+                    cost += inv_item.price / inv_item.quantity * i.quantity
+                except ZeroDivisionError as e:
+                    raise ValueError(
+                        f'Inventory item was empty: {inv_item!r}') from e
+            else:
+                cost += inv_item.cost_of(n, lowest_first=lowest_first)
+
+        return n * cost
+
     def generate_metadata(self):
         if self.metadata.get('popularity') is None:
             self.update_popularity()
+
+    def on_next_month(self):
+        super().on_next_month()
+        self.update_sales()
+        self.update_expenses()
 
     def sell_dish(self, dish: Dish, quantity=1, *, simulate=False) \
             -> Optional[decimal.Decimal]:
@@ -100,28 +145,6 @@ class Restaurant(Business):
                 item.price += value
 
         return total
-
-    def step(self, *, weeks: int):
-        """Step the business by N weeks.
-        Every new month, dishes are sold, updating the business's balance
-        and all dishes' sales and expenses.
-        """
-        if weeks < 0:
-            raise ValueError(f'weeks ({weeks}) cannot be negative')
-
-        year, month = self.year, self.month
-        while weeks > 0:
-            change = min(weeks, 4 - self.week)
-            self.total_weeks += change
-            weeks -= change
-
-            new_year, new_month = self.year, self.month
-
-            if new_month > month:
-                self.update_sales()
-                self.update_expenses()
-
-            year, month = new_year, new_month
 
     def update_popularity(self):
         old = self.metadata.get('popularity')
@@ -179,16 +202,12 @@ class Restaurant(Business):
                 del sales[dish]
 
         self.balance += revenue
-        self.add_transaction('Dish Sales', revenue)
+        self.add_transaction('Dish Sales', revenue, TransactionType.SALES)
 
         return revenue, expenses
 
     def update_sales(self, none_only=False) -> int:
         """Update the sales of all dishes.
-
-        Pro tips (based on the current equations):
-            The optimal dish price is $10.47.
-            Dishes priced at $65.17 or over will attract 0 customers.
 
         Args:
             none_only (bool): If True, only dishes with a revenue
@@ -205,17 +224,32 @@ class Restaurant(Business):
         randomness = random.uniform(0.81, 0.86)
 
         i = 0
+        dish: Dish
         for dish in self.dishes:
             if none_only and dish.sales is not None:
                 continue
             dollars = float(dish.price)
-            # Quadratic equation in vertex form
+            # Artificially reduce price if it's a few cents below the dollar
+            # by rounding down to the nearest 0.50
+            dollars = int(dollars * 2) / 2
+            # Factor in the popularity of the business with a
+            # quadratic equation
             pop_factor = -0.6 * (popularity - 5) ** 2 + 115
             hour_factor = (open_hours + 171) / 180
+            # Factor in the cost of the materials needed to create the item
+            # with a logistic function
+            try:
+                cost_price_ratio = float(
+                    self.cost_of_dish(dish, 1, average=True) / dish.price)
+            except ValueError:
+                cost_price_ratio = 0.
+            cost_factor = 0.2 / (1 + math.e ** (-20 * cost_price_ratio)) - 0.1
             # Decaying exponential function
-            dish.sales = round(
-                (1.1 ** (-dollars + hour_factor * pop_factor * randomness)
-                 - dollars) / num_dishes
+            dish.sales = int(
+                ((1 + cost_factor - 1 / 2000 * dollars) ** (
+                    -dollars + hour_factor * pop_factor * randomness
+                    + 4 * cost_price_ratio
+                ) - dollars) / num_dishes
             )
             i += 1
 
