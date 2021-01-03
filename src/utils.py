@@ -1,10 +1,10 @@
 import decimal
 
-
-def round_dollars(d) -> decimal.Decimal:
-    """Round a number-like object to the nearest cent."""
-    cent = decimal.Decimal('0.01')
-    return decimal.Decimal(d).quantize(cent, rounding=decimal.ROUND_HALF_UP)
+__all__ = [
+    'case_preserving_replace', 'format_cents', 'format_dollars',
+    'fuzzy_match_word', 'parse_cents', 'parse_decimal', 'parse_dollars',
+    'plural', 'round_dollars'
+]
 
 
 def case_preserving_replace(text, target, replacement, count=None):
@@ -86,6 +86,24 @@ def fuzzy_match_word(s: str, choices: list, return_possible=False) -> str:
     return possible if return_possible and possible else None
 
 
+def parse_cents(s: str) -> int:
+    """Parse a decimal number into cents.
+
+    Returns:
+        int
+
+    Raises:
+        ValueError
+
+    """
+    whole, rational = parse_decimal(s)
+    if rational >= 100:
+        raise ValueError('Cannot exceed decimal precision of 2 '
+                         '(over 99 cents)')
+    cents = whole * 100 + rational
+    return cents
+
+
 def parse_decimal(s: str) -> tuple:
     """Parse a decimal number into its whole and decimal parts.
 
@@ -113,24 +131,6 @@ def parse_decimal(s: str) -> tuple:
     return int(whole), int(decimal)
 
 
-def parse_cents(s: str) -> int:
-    """Parse a decimal number into cents.
-
-    Returns:
-        int
-
-    Raises:
-        ValueError
-
-    """
-    whole, rational = parse_decimal(s)
-    if rational >= 100:
-        raise ValueError('Cannot exceed decimal precision of 2 '
-                         '(over 99 cents)')
-    cents = whole * 100 + rational
-    return cents
-
-
 def parse_dollars(s: str) -> decimal.Decimal:
     """Parse a decimal number into Decimal."""
     whole, rational = parse_decimal(s)
@@ -141,7 +141,7 @@ def parse_dollars(s: str) -> decimal.Decimal:
     return decimal.Decimal(f'{whole}.{rational:<02d}')
 
 
-def plural(s: str, n: int = 2, suffix='s'):
+def plural(s: str, n: int = 2, plural_version=None):
     """Pluralize a word using general rules.
     Reference:
         https://www.grammarly.com/blog/plural-nouns/
@@ -149,6 +149,8 @@ def plural(s: str, n: int = 2, suffix='s'):
     """
     if n == 1:
         return s
+    elif plural_version is not None:
+        return plural_version
 
     vowels = frozenset('aeiou')
     fully_upper = s.isupper()
@@ -158,28 +160,28 @@ def plural(s: str, n: int = 2, suffix='s'):
         uppercases = [c.isupper() for c in s]
     caseless = s.lower()
 
-    if suffix is None:
-        if caseless.endswith(('s', 'ss', 'sh', 'ch', 'x', 'z', 'o')):
-            suffix = 'es'
-        # elif caseless.endswith(('f', 'fe')):
-        #     s = s[:-2] if caseless.endswith('fe') else s[:-1]
-        #     s += 've'
-        #     suffix = 's'
-        elif caseless.endswith('y'):
-            if caseless[-2] in vowels:
-                suffix = 's'
-            else:
-                s = s[:-1]
-                suffix = 'ies'
-        elif caseless.endswith('us'):
-            s = s[:-2]
-            suffix = 'i'
-        elif caseless.endswith('is'):
-            s = s[:-2]
-            suffix = 'es'
-        elif caseless.endswith('on'):
-            s = s[:-2]
-            suffix = 'a'
+    suffix = 's'
+    if caseless.endswith(('s', 'ss', 'sh', 'ch', 'x', 'z', 'o')):
+        suffix = 'es'
+    # elif caseless.endswith(('f', 'fe')):
+    #     s = s[:-2] if caseless.endswith('fe') else s[:-1]
+    #     s += 've'
+    #     suffix = 's'
+    elif caseless.endswith('y'):
+        if caseless[-2] in vowels:
+            suffix = 's'
+        else:
+            s = s[:-1]
+            suffix = 'ies'
+    elif caseless.endswith('us'):
+        s = s[:-2]
+        suffix = 'i'
+    elif caseless.endswith('is'):
+        s = s[:-2]
+        suffix = 'es'
+    elif caseless.endswith('on'):
+        s = s[:-2]
+        suffix = 'a'
 
     rough_join = s + suffix
 
@@ -191,3 +193,9 @@ def plural(s: str, n: int = 2, suffix='s'):
         chars.append(c.upper() if uppercase else c)
 
     return ''.join(chars)
+
+
+def round_dollars(d) -> decimal.Decimal:
+    """Round a number-like object to the nearest cent."""
+    cent = decimal.Decimal('0.01')
+    return decimal.Decimal(d).quantize(cent, rounding=decimal.ROUND_HALF_UP)

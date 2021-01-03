@@ -1,10 +1,13 @@
 from abc import ABC, abstractmethod
+from typing import Dict
+
+__all__ = ['InventoryBase']
 
 
 class InventoryBase(ABC):
     _DEFAULT = object()
     _INV_TYPE = object
-    _items: dict
+    _items: Dict[str, _INV_TYPE]
 
     def __bool__(self):
         return bool(self._items)
@@ -12,17 +15,23 @@ class InventoryBase(ABC):
     def __contains__(self, item):
         return item in self._items
 
+    def __getitem__(self, item):
+        return self._items[item]
+
     def __iter__(self):
         return iter(self._items.values())
 
     def __len__(self):
         return len(self._items)
 
-    def __getitem__(self, item):
-        return self._items[item]
+    def __repr__(self):
+        return '{}({!r})'.format(
+            self.__class__.__name__,
+            [i for i in self._items]
+        )
 
     @abstractmethod
-    def add(self, item):
+    def add(self, item: _INV_TYPE):
         """Add an item to the inventory.
 
         This has no effect if the item is already present.
@@ -31,7 +40,7 @@ class InventoryBase(ABC):
 
     @classmethod
     @abstractmethod
-    def cast_to_inv_type(cls, obj):
+    def cast_to_inv_type(cls, obj) -> _INV_TYPE:
         """Cast an object to _INV_TYPE."""
         if isinstance(obj, cls._INV_TYPE):
             return obj
@@ -55,11 +64,6 @@ class InventoryBase(ABC):
     def pop(self, key, default=_DEFAULT):
         """Remove and return an item from the inventory.
         If key is not found, default is returned if given, else KeyError is raised.
-
-        Returns:
-            Item
-            `default`
-
         """
         if default is self._DEFAULT:
             return self._items.pop(key)

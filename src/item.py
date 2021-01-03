@@ -34,9 +34,10 @@ class Item:
 
     """
     name: str
-    quantity: int = field(compare=False)
-    unit: str = field(compare=False)
-    price: decimal.Decimal = field(default_factory=decimal.Decimal, compare=False)
+    quantity: int = field(hash=False, compare=False)
+    unit: str = field(hash=False, compare=False)
+    price: decimal.Decimal = field(default=decimal.Decimal(),
+                                   hash=False, compare=False)
 
     def __post_init__(self):
         self.price = round_dollars(decimal.Decimal(self.price))

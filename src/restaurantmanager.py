@@ -20,6 +20,7 @@ def is_integer(s: str) -> bool:
 
 class RestaurantManager(Manager):
     """A manager for a restaurant."""
+    _TYPE = Restaurant
     business: Restaurant
 
     def __init__(self, business: Restaurant, *args, **kwargs):
@@ -63,12 +64,6 @@ class RestaurantManager(Manager):
         # Fuzzy lookup by name
         return self.business.dishes.find(s)
 
-    @classmethod
-    def from_filepath(cls, filepath):
-        with open(filepath, encoding='utf-8') as f:
-            business = Restaurant.from_file(f)
-        return cls(business, filepath=filepath)
-
     def run(self):
         """Start the user interface."""
         self.setup_business()
@@ -81,7 +76,9 @@ class RestaurantManagerCLIBase(ManagerCLIBase):
         """When cmd.Cmd is getting help_* methods, replace 'business' with 'restaurant'
         in the docstrings."""
         def fallback():
-            return object.__getattr__(self, item)
+            raise AttributeError('type {!r} has no attribute {!r}'.format(
+                self.__class__.__name__, item
+            )) from None
 
         target = 'business'
         replacement = 'restaurant'
@@ -173,11 +170,12 @@ class RestaurantManagerCLIDishes(RestaurantManagerCLIBase, ManagerCLISubCMDBase)
             # Create Item
             return Item(item_name, quantity, unit, 0)
 
-        inv: Inventory = self.manager.business.inventory
+        business = self.manager.business
+        inv: Inventory = business.inventory
 
         name = input('What is the name of your new dish? ').strip()
         if not name:
-            print('Cancelled creation.')
+            return print('Cancelled creation.')
 
         # Input items
         requirements = []
@@ -189,10 +187,18 @@ class RestaurantManagerCLIDishes(RestaurantManagerCLIBase, ManagerCLISubCMDBase)
             i += 1
             item = input_item()
 
-        price = input_money('How much should this dish cost? $', minimum=0)
+        dish = Dish(name, items=requirements)
+        try:
+            cost = business.cost_of_dish(dish, 1, average=True)
+        except ValueError:
+            pass
+        else:
+            print('Estimated cost of dish (based on current inventory):',
+                  utils.format_dollars(cost))
+        dish.price = input_money('How much should this dish cost? $', minimum=0)
 
         # Add dish
-        self.manager.add_dish(name, requirements, price)
+        business.dishes.add(dish)
         print('Your dish has been created!')
 
     def do_list(self, arg):
@@ -234,7 +240,8 @@ Usage: remove [name_or_index]"""
     def do_show(self, arg):
         """Show the requirements for a dish.
 Usage: show [name_or_index]"""
-        if not self.manager.business.dishes:
+        business = self.manager.business
+        if not business.dishes:
             return print('Your menu currently has no dishes.')
 
         arg = arg.strip()
@@ -251,8 +258,15 @@ Usage: show [name_or_index]"""
             if dish is None:
                 return print('Cancelled.')
 
+        try:
+            cost = utils.format_dollars(
+                business.cost_of_dish(dish, 1, average=True))
+        except ValueError:
+            cost = 'N/A; Missing ingredients'
+
         print(dish)
         print('Price:', utils.format_dollars(dish.price))
+        print('Average cost to produce:', cost)
         if dish.sales is not None:
             revenue = dish.revenue
             expenses = dish.expenses

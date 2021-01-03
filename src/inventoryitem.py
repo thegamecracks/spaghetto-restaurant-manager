@@ -1,6 +1,6 @@
 import copy
 import decimal
-from typing import List, Union, Iterable
+from typing import List, Union, Iterable, Dict
 
 from .inventorybase import InventoryBase
 from .inventoryitementry import InventoryItemEntry
@@ -26,6 +26,7 @@ class InventoryItem(InventoryBase):
 
     """
     _INV_TYPE = InventoryItemEntry
+    _items: Dict[decimal.Decimal, InventoryItemEntry]
 
     def __init__(self, name: str, unit: str,
                  items: Iterable[Union[InventoryItemEntry, Item]] = None):
@@ -48,14 +49,6 @@ class InventoryItem(InventoryBase):
             _items[i.price] = i
 
         self._items = _items
-
-    @property
-    def quantity(self):
-        return sum(i.quantity for i in self)
-
-    @property
-    def price(self):
-        return sum(i.quantity * i.price for i in self)
 
     def __str__(self):
         return '{q:,} {u} of {n}'.format(
@@ -102,6 +95,14 @@ class InventoryItem(InventoryBase):
             )
         return self
 
+    @property
+    def quantity(self):
+        return sum(i.quantity for i in self)
+
+    @property
+    def price(self):
+        return sum(i.quantity * i.price for i in self)
+
     def add(self, other: Union[InventoryItemEntry, Item]):
         """Add another InventoryItem, InventoryItemEntry, or Item to this."""
         def exc():
@@ -143,13 +144,17 @@ class InventoryItem(InventoryBase):
     def copy(self):
         return copy.deepcopy(self)
 
-    def cost_of(self, n: int, lowest_first=True) -> decimal.Decimal:
+    def cost_of(self, n: int, *, lowest_first=True) \
+            -> decimal.Decimal:
         """Return the cost of some number of this item.
+
+        If you want an average cost instead of precise inventory costs,
+        use self.price / self.quantity.
 
         Args:
             n (int): The amount to subtract from quantity.
             lowest_first (bool): If True, entries with the lowest price
-                are subtracted from first.
+                are used first.
 
         Returns:
             decimal.Decimal: The total value of the items subtracted.
@@ -230,7 +235,7 @@ class InventoryItem(InventoryBase):
         return cls(item.name, item.unit, [InventoryItemEntry.from_item(item)])
 
     @classmethod
-    def cast_to_inv_type(cls, obj):
+    def cast_to_inv_type(cls, obj) -> _INV_TYPE:
         if isinstance(obj, cls._INV_TYPE):
             return obj
         elif isinstance(obj, Item):
