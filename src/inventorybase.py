@@ -15,6 +15,9 @@ class InventoryBase(ABC):
     def __contains__(self, item):
         return item in self._items
 
+    def __delitem__(self, item):
+        del self._items[item]
+
     def __getitem__(self, item):
         return self._items[item]
 
@@ -27,7 +30,7 @@ class InventoryBase(ABC):
     def __repr__(self):
         return '{}({!r})'.format(
             self.__class__.__name__,
-            [i for i in self._items]
+            [i for i in self._items.values()]
         )
 
     @abstractmethod
@@ -75,10 +78,7 @@ class InventoryBase(ABC):
         If the item does not exist in the inventory, raises KeyError.
 
         """
-        if hasattr(key, 'name'):
-            del self._items[key.name]
-        else:
-            del self._items[key]
+        del self._items[key]
 
     def to_list(self):
         return [v for v in self._items.values()]

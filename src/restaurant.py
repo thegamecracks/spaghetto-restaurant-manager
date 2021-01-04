@@ -84,7 +84,7 @@ class Restaurant(Business):
             if average:
                 try:
                     cost += inv_item.price / inv_item.quantity * i.quantity
-                except ZeroDivisionError as e:
+                except (ZeroDivisionError, decimal.InvalidOperation) as e:
                     raise ValueError(
                         f'Inventory item was empty: {inv_item!r}') from e
             else:
@@ -93,6 +93,7 @@ class Restaurant(Business):
         return n * cost
 
     def generate_metadata(self):
+        super().generate_metadata()
         if self.metadata.get('popularity') is None:
             self.update_popularity()
 
@@ -201,8 +202,7 @@ class Restaurant(Business):
             for dish in insufficient:
                 del sales[dish]
 
-        self.balance += revenue
-        self.add_transaction('Dish Sales', revenue, TransactionType.SALES)
+        self.deposit('Dish Sales', revenue, TransactionType.SALES)
 
         return revenue, expenses
 

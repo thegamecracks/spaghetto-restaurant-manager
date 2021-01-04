@@ -24,6 +24,13 @@ class Transaction:
     def to_dict(self):
         return asdict(self)
 
+    @staticmethod
+    def _from_dict_deserialize(d: dict):
+        transaction_type = d.get('transaction_type')
+        if transaction_type is not None:
+            d['transaction_type'] = TransactionType(transaction_type)
+        return d
+
     @classmethod
     def from_dict(cls, d: dict):
-        return cls(**d)
+        return cls(**cls._from_dict_deserialize(d))
