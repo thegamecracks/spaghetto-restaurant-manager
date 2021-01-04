@@ -28,7 +28,7 @@ class DishMenu(Inventory):
     def get(self, key: str, default=None) -> _INV_TYPE:
         return super().get(key, default)
 
-    def pop(self, key, default=_DEFAULT) -> _INV_TYPE:
+    def pop(self, key: str, default=_DEFAULT) -> _INV_TYPE:
         # Can't use super for this; _DEFAULT is unique to this class
         if default is self._DEFAULT:
             return self._items.pop(key)

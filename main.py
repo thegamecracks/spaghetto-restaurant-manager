@@ -6,20 +6,20 @@ from src import InventoryItem, Item
 from src import utils
 
 SAVE_BUSINESS = 'business.sav'
-ENCRYPTED = True
+compressed = True
 
 
 def main():
     if Path(SAVE_BUSINESS).is_file():
         try:
-            manager = RestaurantManager.from_filepath(SAVE_BUSINESS, encrypted=ENCRYPTED)
+            manager = RestaurantManager.from_filepath(SAVE_BUSINESS, compressed=compressed)
         except (json.JSONDecodeError, UnicodeDecodeError) as e:
             input('Error occurred during save file parsing.\n'
                   'Your save file may be corrupted.')
             return
     else:
         manager = RestaurantManager(Restaurant(), filepath=SAVE_BUSINESS,
-                                    encrypted=ENCRYPTED)
+                                    compressed=compressed)
 
     with manager.start_transaction():
         manager.run()

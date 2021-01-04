@@ -2,7 +2,7 @@ import decimal
 
 from . import utils
 
-__all__ = ['input_boolean', 'input_money', 'input_integer']
+__all__ = ['input_boolean', 'input_money', 'input_integer', 'is_integer']
 
 
 def input_boolean(prompt):
@@ -14,6 +14,41 @@ def input_boolean(prompt):
         return None
 
     ans = input(prompt).lower().strip()
+    meaning = parse(ans)
+
+    while meaning is None:
+        ans = input('Unknown answer: ').lower().strip()
+        meaning = parse(ans)
+
+    return meaning
+
+
+def input_choice(prompt: str, choices: list, fuzzy_match=False):
+    """Prompt the user for a choice from a list.
+
+    This function automatically appends the list of choices to the prompt.
+
+    The user's input is case-insensitive.
+
+    Args:
+        prompt (str)
+        choices (list)
+        fuzzy_match (bool): If True, uses fuzzy matching to allow
+            more lenient responses.
+
+    """
+
+    def parse(s):
+        if fuzzy_match:
+            return utils.fuzzy_match_word(s, choices)
+        return lowercase_mapping.get(s)
+
+    if not fuzzy_match:
+        lowercase_mapping = {str(c).lower().strip(): c for c in choices}
+
+    choices_str = ', '.join([str(c) for c in choices])
+
+    ans = input(f'{prompt} ({choices_str}) ')
     meaning = parse(ans)
 
     while meaning is None:
@@ -83,3 +118,11 @@ def input_money(prompt, minimum=None, maximum=None) -> decimal.Decimal:
     while isinstance(result, str):
         result = parse(input(result))
     return result
+
+
+def is_integer(s: str) -> bool:
+    try:
+        int(s)
+    except ValueError:
+        return False
+    return True

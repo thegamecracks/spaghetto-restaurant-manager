@@ -3,15 +3,18 @@ The base class comes with a minimal CLI."""
 import cmd
 import contextlib
 import decimal
+import os
 import traceback
-from typing import List
+from typing import List, Union, Optional
 
 from . import utils
 from .business import Business
-from .cliutils import input_integer, input_money
+from .cliutils import input_integer, input_money, input_boolean, is_integer, input_choice
 from .inventory import Inventory
 from .item import Item
+from .loan import Loan
 from .loanmenu import LoanMenu
+from .loanpaybacktype import LoanPaybackType
 from .transaction import Transaction
 
 __all__ = ['Manager']
@@ -19,57 +22,70 @@ __all__ = ['Manager']
 
 class Manager:
     _TYPE = Business
-    RANDOM_LOANS = 8
 
-    def __init__(self, business: Business, loan_menu: LoanMenu = None,
-                 filepath: str = None, encrypted=False):
+    def __init__(self, business: Business, filepath: str = None, compressed=False):
         self.business = business
-        self.loan_menu = loan_menu
         self.filepath = filepath
-        self.encrypted = encrypted
+        self.compressed = compressed
+        self.deleted = False
 
-    @contextlib.contextmanager
-    def start_transaction(self):
-        """This is a context manager that can be used to automatically
-        save the business data when exiting the context.
-        This allows the data to be saved regardless if an exception occurs
-        or the user closes the program unconventionally.
+    def delete_business(self):
+        """Delete the business's save file and mark this as deleted."""
+        os.remove(self.filepath)
+        self.deleted = True
 
-        Usage:
-            >>> with manager.start_transaction():
-            ...     manager.run()
+    def reload_business(self, filepath=None):
+        """Reload the business's data from `filepath`.
+        Defaults to `self.filepath` if no filepath is provided.
+
+        If self.deleted, this is a no-op.
 
         """
-        try:
-            yield self
-        finally:
-            self.save_business()
+        if self.deleted:
+            return
+
+        filepath = filepath or self.filepath
+        with open(filepath, encoding='utf-8') as f:
+            self.business = self._TYPE.from_file(f)
+
+    def run(self):
+        """Start the user interface.
+        Override this method in a subclass to implement a new interface."""
+        self.setup_business()
+
+        ManagerCLIMain(self).cmdloop()
+
+    def save_business(self, filepath=None):
+        """Save the business to `filepath`.
+        Defaults to `self.filepath` if no filepath is provided.
+
+        Except for `with manager.start_transaction(): ...`, this method
+        will always succeed regardless if the business is deleted.
+        This allows a last resort save while the program is still alive.
+
+        """
+        filepath = filepath or self.filepath
+        self.business.to_file(filepath, compressed=self.compressed)
 
     def setup_business(self):
         """Setup the business's balance and inventory if they are None.
         This is intended for the CLI."""
         business = self.business
         if business.balance is None:
-            business.balance = input_money(
+            balance = input_money(
                 "What is your business's current balance? $")
+            business.deposit('Initial balance', balance)
 
         if business.employee_count is None:
             business.employee_count = input_integer(
-                "How many employees do you have? ", minimum=0)
+                "How many employees do you have? ", minimum=1)
 
         if business.inventory is None:
             print("Let's set up your business's current inventory!")
             print("(if you intend to buy new items using your balance, skip this part)")
             self.setup_inventory()
 
-        if self.loan_menu is None:
-            self.loan_menu = LoanMenu.from_random(self.RANDOM_LOANS)
         self.business.generate_metadata()
-
-    @classmethod
-    def from_filepath(cls, filepath, *, encrypted=False):
-        business = cls._TYPE.from_file(filepath)
-        return cls(business, filepath=filepath, encrypted=encrypted)
 
     def setup_inventory(self):
         """Setup the business's inventory."""
@@ -79,7 +95,7 @@ class Manager:
                 return
 
             quantity = input_integer('Quantity: ', minimum=0)
-            unit = input('Unit of quantity (gram, mL, cup...): ').strip()
+            unit = input('Unit of quantity (gram, millilitre, cup...): ').strip()
             price = input_money('Total cost of item: $')
 
             return Item(name, quantity, unit, price)
@@ -95,25 +111,30 @@ class Manager:
 
         self.business.inventory = inv
 
-    def save_business(self, filepath=None):
-        """Save the business to `filepath`.
-        Defaults to `self.filepath` if no filepath is provided."""
-        filepath = filepath or self.filepath
-        self.business.to_file(filepath, encrypted=self.encrypted)
+    @contextlib.contextmanager
+    def start_transaction(self):
+        """This is a context manager that can be used to automatically
+        save the business data when exiting the context.
+        This allows the data to be saved regardless if an exception occurs
+        or the user closes the program unconventionally.
 
-    def reload_business(self, filepath=None):
-        """Reload the business's data from `filepath`.
-        Defaults to `self.filepath` if no filepath is provided."""
-        filepath = filepath or self.filepath
-        with open(filepath, encoding='utf-8') as f:
-            self.business = self._TYPE.from_file(f)
+        If self.deleted however, the save will not be executed.
 
-    def run(self):
-        """Start the user interface.
-        Override this method in a subclass to implement a new interface."""
-        self.setup_business()
+        Usage:
+            >>> with manager.start_transaction():
+            ...     manager.run()
 
-        ManagerCLIMain(self).cmdloop()
+        """
+        try:
+            yield self
+        finally:
+            if not self.deleted:
+                self.save_business()
+
+    @classmethod
+    def from_filepath(cls, filepath, *, compressed=False):
+        business = cls._TYPE.from_file(filepath)
+        return cls(business, filepath=filepath, compressed=compressed)
 
 
 class ManagerCLIBase(cmd.Cmd):
@@ -123,7 +144,7 @@ class ManagerCLIBase(cmd.Cmd):
 
     ruler = '='  # Used for help message headers
     doc_leader = ''  # Printed before the documentation headers
-    doc_header = 'Commands (type help <command>):'
+    doc_header = 'Commands (type help <command> to see their usage):'
     misc_header = 'Help topics (type help <topic>):'
     undoc_header = 'Undocumented commands'
     nohelp = 'There is no information on "%s".'
@@ -142,6 +163,41 @@ class ManagerCLIBase(cmd.Cmd):
             'Usage: ?[cmd/topic]'
         )
 
+    def default(self, line: str) -> bool:
+        command, arg, line = self.parseline(line)
+        try:
+            hidden = getattr(self, 'condhidden_' + command)
+        except AttributeError:
+            return super().default(line)
+
+        return hidden(arg)
+
+    def get_names(self):
+        """Modifies get_names to support dynamic commands."""
+        return dir(self)
+
+    def add_conditional(self, name, func):
+        setattr(self, name, func)
+
+    def delete_conditional(self, name):
+        try:
+            delattr(self, name)
+        except AttributeError:
+            pass
+
+    def set_conditional(self, name, func, enable: bool):
+        """Set a conditional command as enabled or not."""
+        if enable:
+            self.add_conditional(name, func)
+        else:
+            self.delete_conditional(name)
+
+    def update_conditional(self):
+        """Method stub for adding/removing dynamic commands."""
+
+    def preloop(self):
+        self.update_conditional()
+
     def postcmd(self, stop, line):
         """Called after a command dispatch is finished.
         Prints a message if the business's balance is negative."""
@@ -149,6 +205,7 @@ class ManagerCLIBase(cmd.Cmd):
         if balance < 0:
             print("Warning: the business's balance is negative! "
                   f'({utils.format_dollars(balance)})')
+        self.update_conditional()
         return stop
 
 
@@ -211,6 +268,7 @@ class ManagerCLIFinancesEmployees(ManagerCLISubCMDBase):
 
     def preloop(self):
         """Show count at the start of the loop."""
+        super().preloop()
         self.cmdqueue.append('count')
 
     def do_count(self, arg):
@@ -279,10 +337,261 @@ Usage: increase <number>"""
         ))
 
 
+class ManagerCLIFinancesLoans(ManagerCLISubCMDBase):
+    doc_header = 'Loan Management'
+
+    @staticmethod
+    def print_loan_not_found(arg):
+        if is_integer(arg):
+            return print('That index does not exist!')
+        else:
+            return print('That loan name does not exist! (check spelling)')
+
+    @staticmethod
+    def get_loan(menu: LoanMenu, s: Union[int, str]) -> Loan:
+        """Lookup a Dish by index or name.
+
+        Args:
+            menu (LoanMenu): The menu to check for loans.
+            s (Union[int, str])
+
+        Returns:
+            Loan
+            None
+
+        """
+        # Lookup by index
+        try:
+            index = int(s)
+        except ValueError:
+            pass
+        else:
+            mapping = {i: loan for i, loan in enumerate(menu, start=1)}
+            return mapping.get(index)
+
+        # Fuzzy lookup by name
+        return menu.find(s)
+
+    def input_loan(self, menu: LoanMenu, prompt: str, *, cancellable=False) \
+            -> Optional[Loan]:
+        """Prompt the user for an existing loan.
+
+        Args:
+            menu (LoanMenu): The menu to get loans from.
+            prompt (str): The initial message to show the user.
+            cancellable (bool): Whether the user can cancel the prompt or not.
+
+        Returns:
+            Loan
+            None: if `cancellable` and user inputs nothing.
+
+        """
+        if cancellable:
+            prompt += '(type nothing to cancel) '
+
+        arg = input(prompt).strip()
+        loan = self.get_loan(menu, arg)
+        while loan is None:
+            if not arg and cancellable:
+                return
+            arg = input('Could not find that loan: ').strip()
+            loan = self.get_loan(menu, arg)
+        return loan
+
+    def do_apply(self, arg):
+        """Apply for a loan (or just see the requirements of one).
+Usage: apply [name_or_index]"""
+        def cancel():
+            print('Cancelled application.')
+        business = self.manager.business
+        if business.loans:
+            return print('You have already applied for a loan.')
+
+        arg = arg.strip()
+
+        loan_menu: LoanMenu = business.metadata['loan_menu']
+        if arg:
+            # User supplied argument
+            loan = self.get_loan(loan_menu, arg)
+            if not loan:
+                return self.print_loan_not_found(arg)
+        else:
+            loan = self.input_loan(
+                loan_menu, "What is the loan you want to apply for? ",
+                cancellable=True
+            )
+            if loan is None:
+                return cancel()
+
+        print(loan)
+        name = 'subsidy' if loan.is_subsidy else 'loan'
+
+        print(f'Amount: {utils.format_dollars(loan.amount)}')
+        if not loan.is_subsidy:
+            rate_type = str(loan.interest_type)
+            rate_frequency = loan.interest_type.frequency
+            if rate_frequency:
+                rate_type = f'{rate_frequency} {rate_type}ed'
+            print('{} interest rate: {:%}'.format(
+                rate_type.capitalize(),
+                loan.rate
+            ))
+            if loan.term is not None and loan.payback_type is not None:
+                remaining_payments = loan.remaining_payments
+                print('Total payments: {} ({})'.format(
+                    remaining_payments,
+                    str(loan.payback_type)
+                ))
+            elif loan.payback_type is not None:
+                # Can't calculate # of payments, user has to input the term
+                print('Payment frequency:', loan.payback_type)
+
+        qualified = loan.check(business)
+        if loan.requirements:
+            meets = 'meets' if qualified else 'does not meet'
+            print(f'Your business {meets} the requirements for this {name}:')
+            for req in loan.requirements:
+                sign = '+' if req.check(business) else '-'
+                print(sign, req)
+
+        if not qualified:
+            return
+
+        # Negotiations to be done
+        negotiate_term = not loan.is_subsidy and loan.term is None
+        negotiate_payback = not loan.is_subsidy and loan.payback_type is None
+
+        if any((negotiate_term, negotiate_payback)) and not input_boolean(
+                'Proceed with negotiating terms? (y/n) '):
+            return
+
+        loan = loan.copy()
+
+        if negotiate_term:
+            loan.term = input_integer(
+                'What do you want the loan term to be? (years) ', minimum=1)
+            print('Interest due:', utils.format_dollars(loan.interest_due))
+
+            while not input_boolean('Confirm selection: (y/n) '):
+                loan.term = input_integer(
+                    'What do you want the loan term to be? ', minimum=1)
+                print('Interest due:', utils.format_dollars(loan.interest_due))
+
+            # Update remaining_payments to match the term
+            loan.reset_remaining_weeks()
+
+        if negotiate_payback:
+            payback_types = list(LoanPaybackType)
+            loan.payback_type = input_choice(
+                'How frequently do you want to pay this loan? ',
+                payback_types
+            )
+            print('Payments: {} x {}'.format(
+                loan.remaining_payments,
+                utils.format_dollars(loan.normal_payment)
+            ))
+            while not input_boolean('Confirm selection: (y/n) '):
+                loan.payback_type = input_choice(
+                    'How frequently do you want to pay this loan? ',
+                    payback_types
+                )
+                print('Payments: {} x {}'.format(
+                    loan.remaining_payments,
+                    utils.format_dollars(loan.normal_payment)
+                ))
+
+        if input_boolean(
+                f'Are you sure you want to apply for this {name}? (y/n) '):
+            business.apply_loan(loan, copy=False)
+            if loan.is_subsidy:
+                loan_menu.remove(loan)
+            print(f'You have successfully applied for the {loan}!')
+        else:
+            return cancel()
+
+    def do_available(self, arg):
+        """View the available loans from various banks."""
+        business = self.manager.business
+        loan_menu = business.metadata['loan_menu']
+        for i, loan in enumerate(loan_menu, start=1):
+            state = '(qualifying)' if loan.check(business) else '(unavailable)'
+            print(f'{i:,}: {loan} {state}')
+        print('Note that you can only apply for one loan at a time.')
+
+    def do_list(self, arg):
+        """View the business's loans."""
+        if not self.manager.business.loans:
+            return print('Your business currently has no loans.')
+
+        for i, loan in enumerate(self.manager.business.loans, start=1):
+            print(f'{i:,}: {loan}')
+
+    def do_show(self, arg):
+        """Show the details on a particular loan.
+Usage: show [name_or_index]"""
+        if not self.manager.business.loans:
+            return print('Your business currently has no loans.')
+
+        arg = arg.strip()
+
+        loan_menu = self.manager.business.loans
+        if arg:
+            # User supplied argument
+            loan = self.get_loan(loan_menu, arg)
+            if not loan:
+                return self.print_loan_not_found(arg)
+        else:
+            loan = self.input_loan(
+                loan_menu, "What is the loan you want to show? ",
+                cancellable=True
+            )
+            if loan is None:
+                return print('Cancelled.')
+
+        print(loan.to_dict())
+        print(loan.name)
+        print('Term: {} {}'.format(loan.term, utils.plural('year', loan.term)))
+        print(f'Amount: {utils.format_dollars(loan.amount)}')
+        remaining_payments = loan.remaining_payments
+        print('Remaining {} payments: {}'.format(
+            str(loan.payback_type),
+            remaining_payments
+        ))
+        print('Next payment will be: {}'.format(
+            utils.format_dollars(loan.get_next_payment())
+        ))
+
+
 class ManagerCLIFinances(ManagerCLISubCMDBase):
     doc_header = 'Finance Management'
 
+    def preloop(self):
+        """Display any completed loans."""
+        super().preloop()
+
+        completed_loans: List[Loan] = []
+        for loan in self.manager.business.loans:
+            if loan.remaining_weeks <= 0:
+                completed_loans.append(loan)
+
+        if completed_loans:
+            print('The following {} has been fully paid off:'.format(
+                utils.plural('loan', len(completed_loans))
+            ))
+            for loan in completed_loans:
+                del self.manager.business.loans[loan]
+                print(loan, ':', utils.format_dollars(loan.amount + loan.interest_due))
+
+    def update_conditional(self):
+        self.set_conditional(
+            'do_bankruptcy', self.cond_bankruptcy,
+            self.manager.business.balance < 0
+        )
+
     def print_transactions(self, transactions: List[Transaction]):
+        if not transactions:
+            return
+
         business = self.manager.business
         weeks = []
         dollars = []
@@ -313,13 +622,14 @@ class ManagerCLIFinances(ManagerCLISubCMDBase):
         self.cmdqueue.append('help')
 
     def do_expenses(self, arg):
-        """View the current and last month's expenses."""
+        """View your average expenses, along with the current and last month's expenses.
+Your average expenses will only include what you have spent on inventory."""
         business = self.manager.business
         after = business.total_weeks - business.total_weeks % 4 - 4
         transactions = business.get_transactions(after=after, key=lambda t: t.dollars < 0)
 
-        if not transactions:
-            return print('There are no recent expenses.')
+        print('Your monthly expenses is:',
+              utils.format_dollars(business.get_monthly_expenses()))
 
         self.print_transactions(transactions)
 
@@ -335,22 +645,37 @@ class ManagerCLIFinances(ManagerCLISubCMDBase):
 
     def do_loans(self, arg):
         """View the business's loans."""
-        # TODO: Loan sub-interface
+        ManagerCLIFinancesLoans(self.manager).cmdloop()
+        self.cmdqueue.append('help')
 
     def do_revenue(self, arg):
-        """View the current and last month's income transactions."""
+        """View your average revenue, along with the current and last month's income transactions."""
         business = self.manager.business
         after = business.total_weeks - business.total_weeks % 4 - 4
         transactions = self.manager.business.get_transactions(key=lambda t: t.dollars > 0)
 
-        if not transactions:
-            return print('There are no recent income transactions.')
+        print('Your monthly revenue is:',
+              utils.format_dollars(business.get_monthly_revenue()))
 
         self.print_transactions(transactions)
+
+    def cond_bankruptcy(self, arg):
+        """File for bankruptcy."""
+        if input_boolean('Are you sure you want to file for bankruptcy? (y/n) '):
+            self.manager.delete_business()
+            input('Your business has been liquidated.\n'
+                  'Press Enter to close this program.')
+            quit()
 
 
 class ManagerCLIInventory(ManagerCLISubCMDBase):
     doc_header = 'Inventory Management'
+
+    def update_conditional(self):
+        self.set_conditional(
+            'do_buy', self.cond_buy,
+            self.manager.business.balance > 0
+        )
 
     def input_money_per(self, prompt, minimum=None, maximum=None):
         """Get money input from the user.
@@ -381,35 +706,50 @@ class ManagerCLIInventory(ManagerCLISubCMDBase):
             result = parse(input(result))
         return result
 
-    def do_buy(self, arg):
+    def cond_buy(self, arg):
         """Buy an item using the business's balance."""
+        def cancel():
+            print('Cancelled purchase.')
+
         business = self.manager.business
         inv = business.inventory
 
         name = input('What is the name of the item? ').strip()
 
         if not name:
-            return print('Cancelled purchase.')
+            return cancel()
 
         item = inv.get(name)
 
         if item is not None:
             unit = item.unit
         else:
-            unit = input('What unit is this item measured in? ')
+            unit = input('What unit is this item measured in? (gram, millilitre, cup...) ').strip()
+            if not unit:
+                return cancel()
 
         quantity = input_integer('How much do you want to buy? ', minimum=0)
         price, is_unit = self.input_money_per(
             'What is the cost of your purchase? (type "per" at the end if '
-            f'you are specifying the unit price)\n{self.prompt}$', minimum=0
+            f'you are specifying the unit price)\n{self.prompt}$', minimum=0,
+            maximum=business.balance
         )
         if is_unit:
             price *= quantity
 
-        # Create the new item and update the business
+        # Create the new item and try buying it
         new_item = Item(name, quantity, unit, price)
-        business.buy_item(new_item)
-        print(f'{new_item} purchased!')
+        success = business.buy_item(new_item)
+        if success:
+            print(f'{new_item} purchased!')
+        else:
+            # NOTE: This shouldn't occur since input_money_per sets the
+            # maximum but it's best to handle it anyways
+            print('Failed to purchase item.')
+
+    def condhidden_buy(self, arg):
+        balance = utils.format_dollars(self.manager.business.balance)
+        print(f'Cannot use this command with a balance of {balance}.')
 
     def do_list(self, arg):
         """List the items in your inventory."""

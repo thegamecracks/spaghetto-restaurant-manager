@@ -22,10 +22,22 @@ class JSONEncoder(json.JSONEncoder):
 
 
 def object_hook(d: dict):
+    def recurse(v, cast):
+        if isinstance(v, list):
+            new = []
+            for x in v:
+                try:
+                    new.append(recurse(x, cast))
+                except Exception as e:
+                    new.append(x)
+            return new
+        return cast(v)
+
     def to_decimal(v):
         if isinstance(v, (int, float)):
             raise ValueError('tried converting a non-string into a decimal')
         return decimal.Decimal(v)
+
     casts = (
         # datetime.date.fromisoformat,
         # datetime.datetime.fromisoformat,
@@ -34,7 +46,7 @@ def object_hook(d: dict):
     for k, v in d.items():
         for c in casts:
             try:
-                d[k] = c(v)
+                d[k] = recurse(v, c)
             except (TypeError, ValueError, decimal.InvalidOperation):
                 pass
             else:

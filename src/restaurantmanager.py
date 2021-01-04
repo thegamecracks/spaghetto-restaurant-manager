@@ -1,4 +1,6 @@
-from .cliutils import input_boolean, input_integer, input_money
+from typing import Optional, Union
+
+from .cliutils import input_boolean, input_integer, input_money, is_integer
 from .dish import Dish
 from .item import Item
 from .inventory import Inventory
@@ -8,14 +10,6 @@ from .restaurant import Restaurant
 from . import utils
 
 __all__ = ['RestaurantManager']
-
-
-def is_integer(s: str) -> bool:
-    try:
-        int(s)
-    except ValueError:
-        return False
-    return True
 
 
 class RestaurantManager(Manager):
@@ -42,11 +36,11 @@ class RestaurantManager(Manager):
         """Remove a dish from the restaurant."""
         self.business.dishes.remove(dish.name)
 
-    def get_dish(self, s: str) -> Dish:
+    def get_dish(self, s: Union[int, str]) -> Dish:
         """Lookup a Dish by index or name.
 
         Args:
-            s (str)
+            s (Union[int, str])
 
         Returns:
             Dish
@@ -75,6 +69,7 @@ class RestaurantManagerCLIBase(ManagerCLIBase):
     def __getattr__(self, item: str):
         """When cmd.Cmd is getting help_* methods, replace 'business' with 'restaurant'
         in the docstrings."""
+
         def fallback():
             raise AttributeError('type {!r} has no attribute {!r}'.format(
                 self.__class__.__name__, item
@@ -112,14 +107,14 @@ class RestaurantManagerCLIMain(RestaurantManagerCLIBase, ManagerCLIMain):
 class RestaurantManagerCLIDishes(RestaurantManagerCLIBase, ManagerCLISubCMDBase):
     manager: RestaurantManager
 
-    def print_dish_not_found(self, arg):
+    @staticmethod
+    def print_dish_not_found(arg):
         if is_integer(arg):
             return print('That index does not exist!')
         else:
-            return print('That dish name does not exist!\n'
-                         '(check capitalization and spelling)')
+            return print('That dish name does not exist! (check spelling)')
 
-    def input_dish(self, prompt: str, *, cancellable=False) -> Dish:
+    def input_dish(self, prompt: str, *, cancellable=False) -> Optional[Dish]:
         """Prompt the user for an existing dish.
 
         Args:
@@ -145,13 +140,14 @@ class RestaurantManagerCLIDishes(RestaurantManagerCLIBase, ManagerCLISubCMDBase)
 
     def do_add(self, arg):
         """Add a new dish to the menu."""
+
         def input_item():
             """Get an item from the user."""
             # Get item name
             end = 'cancel' if i == 1 else 'finish'
             item_name = input(f'Item #{i} (type nothing to {end}): ').strip()
             if not item_name:
-                return print('Cancelled creation.') if i == 1 else None
+                return
 
             # Get Item object if it exists
             inv_item = inv.get(item_name)
@@ -160,28 +156,35 @@ class RestaurantManagerCLIDishes(RestaurantManagerCLIBase, ManagerCLISubCMDBase)
             else:
                 # Create new item in inventory
                 unit = input('What unit is this item measured in? '
-                             '(gram, mL, cup...) ').strip()
-                inv_item = Item(item_name, 0, unit, 0)
+                             '(gram, millilitre, cup...) ').strip()
+                if not unit:
+                    return
+                inv_item = Item(item_name, 0, unit)
                 inv.add(inv_item)
 
             quantity = input_integer('How much of this item is required? '
                                      f'({utils.plural(unit)}) ', minimum=0)
 
             # Create Item
-            return Item(item_name, quantity, unit, 0)
+            return Item(item_name, quantity, unit)
+
+        def cancel():
+            print('Cancelled creation.')
 
         business = self.manager.business
         inv: Inventory = business.inventory
 
         name = input('What is the name of your new dish? ').strip()
         if not name:
-            return print('Cancelled creation.')
+            return cancel()
 
         # Input items
         requirements = []
         print('What items does your dish use?')
         i = 1
         item = input_item()
+        if item is None:
+            return cancel()
         while item is not None:
             requirements.append(item)
             i += 1

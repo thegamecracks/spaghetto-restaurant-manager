@@ -15,4 +15,4 @@ class LoanPaybackType(enum.IntEnum):
     YEARLY = 48
 
     def __str__(self):
-        return self._name_.lower()
+        return self.name.lower()

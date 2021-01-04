@@ -9,6 +9,7 @@ from . import item
 from . import jsonencoder
 from . import loan
 from . import loanmenu
+from . import loaninteresttype
 from . import loanpaybacktype
 from . import loanrequirement
 from . import loanrequirementtype
@@ -29,6 +30,7 @@ from .item import *
 from .jsonencoder import *
 from .loan import *
 from .loanmenu import *
+from .loaninteresttype import *
 from .loanpaybacktype import *
 from .loanrequirement import *
 from .loanrequirementtype import *

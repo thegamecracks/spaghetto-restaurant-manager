@@ -8,12 +8,16 @@ from .loanrequirementtype import LoanRequirementType
 __all__ = ['LoanRequirement']
 
 
-@dataclass
+@dataclass(frozen=True)
 class LoanRequirement:
     loan_type: LoanRequirementType
     value: Tuple[Optional[decimal.Decimal], Optional[decimal.Decimal]]
+    description: str = None
 
     def __str__(self):
+        if self.description is not None:
+            return self.description
+
         v = self._format_value()
         if self.loan_type == LoanRequirementType.MONTHLY_REVENUE:
             return f'{v} in average revenue per month'
@@ -50,19 +54,31 @@ class LoanRequirement:
             bool
 
         """
+        def check_bounds(num):
+            return ((self.value[0] is None or num >= self.value[0])
+                    and (self.value[1] is None or num <= self.value[1]))
+
         if self.loan_type == LoanRequirementType.MONTHLY_REVENUE:
-            revenue = business.get_monthly_revenue()
-            return self.value[0] < revenue < self.value[1]
+            return check_bounds(business.get_monthly_revenue())
         elif self.loan_type == LoanRequirementType.MONTHLY_EXPENSE:
-            expense = business.get_monthly_expense()
-            return self.value[0] < expense < self.value[1]
-        elif self.loan_type < LoanRequirementType.EMPLOYEES:
-            return self.value[0] < business.employee_count < self.value[1]
+            return check_bounds(business.get_monthly_expenses())
+        elif self.loan_type == LoanRequirementType.EMPLOYEES:
+            return check_bounds(business.employee_count)
         return False
 
     def to_dict(self):
         return asdict(self)
 
+    @staticmethod
+    def _from_dict_deserialize(d: dict):
+        loan_type = d.get('loan_type')
+        if loan_type is not None:
+            d['loan_type'] = LoanRequirementType(loan_type)
+        value = d.get('value')
+        if value is not None:
+            d['value'] = tuple(value)
+        return d
+
     @classmethod
     def from_dict(cls, d: dict):
-        return cls(**d)
+        return cls(**cls._from_dict_deserialize(d))

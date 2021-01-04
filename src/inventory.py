@@ -51,26 +51,38 @@ class Inventory(InventoryBase):
             _items[i.name] = i
         self._items = _items
 
+    def __contains__(self, item):
+        return getattr(item, 'name', item) in self._items
+
+    def __delitem__(self, item):
+        del self._items[getattr(item, 'name', item)]
+
+    def __getitem__(self, item):
+        return self._items[getattr(item, 'name', item)]
+
     def add(self, item: Union[_INV_TYPE, Item]):
         if item.name not in self:
             self._items[item.name] = self.cast_to_inv_type(item)
 
-    def discard(self, key: str):
-        self._items.pop(key, None)
+    def discard(self, key):
+        self._items.pop(getattr(key, 'name', key), None)
 
-    def find(self, key: str, default=None) -> _INV_TYPE:
+    def find(self, key, default=None) -> _INV_TYPE:
         """Find an item that fuzzy matches the given name. Similar to get()."""
         names = list(self._items)
-        search = utils.fuzzy_match_word(key, names)
+        search = utils.fuzzy_match_word(getattr(key, 'name', key), names)
         return self.get(search, default) if search is not None else default
 
-    def get(self, key: str, default=None) -> _INV_TYPE:
-        return self._items.get(key, default)
+    def get(self, key, default=None) -> _INV_TYPE:
+        return self._items.get(getattr(key, 'name', key), default)
 
     def pop(self, key, default=_DEFAULT) -> _INV_TYPE:
         if default is self._DEFAULT:
-            return self._items.pop(key)
-        return self._items.pop(key, default)
+            return self._items.pop(getattr(key, 'name', key))
+        return self._items.pop(getattr(key, 'name', key), default)
+
+    def remove(self, key):
+        del self._items[getattr(key, 'name', key)]
 
     def to_list(self):
         return [v for v in self._items.values()]
