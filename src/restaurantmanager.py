@@ -2,7 +2,6 @@ from typing import Optional, Union
 
 from .cliutils import input_boolean, input_integer, input_money, is_integer
 from .dish import Dish
-from .inventoryitem import InventoryItem
 from .item import Item
 from .inventory import Inventory
 from .manager import (Manager, ManagerCLIBase, ManagerCLIMain,
@@ -20,67 +19,6 @@ class RestaurantManager(Manager):
 
     def __init__(self, business: Restaurant, *args, **kwargs):
         super().__init__(business, *args, **kwargs)
-
-    def describe_dish(self, dish: Dish) -> str:
-        try:
-            cost = utils.format_dollars(self.business.cost_of_dish(dish, 1, average=True))
-        except ValueError:
-            cost = 'N/A; Missing ingredients'
-
-        description = (
-            'Price: {price}\n'
-            'Average cost to produce: {cost}\n'
-        ).format(
-            price=utils.format_dollars(dish.price),
-            cost=cost
-        )
-
-        if dish.sales is not None:
-            revenue = dish.revenue
-            expenses = dish.expenses
-            description += (
-                "Last month's sales: {sales}\n"
-                'Revenue: {revenue}\n'
-                'Expenses: {expenses}\n'
-                'Profit: {profit}\n'
-            ).format(
-                sales=dish.sales,
-                revenue=utils.format_dollars(revenue),
-                expenses=utils.format_dollars(expenses),
-                profit=utils.format_dollars(revenue - expenses)
-            )
-        else:
-            description += "Last month's sales: N/A\n"
-
-        if dish.items:
-            description += 'Ingredients:\n- ' + '\n- '.join([
-                str(i) for i in dish.items])
-
-        return description.rstrip()
-
-    def describe_invitem(self, item: InventoryItem) -> str:
-        """Return a string describing a given inventory item.
-
-        Args:
-            item (InventoryItem)
-
-        Returns:
-            str
-
-        """
-        description = super().describe_invitem(item) + '\n'
-
-        dishes = [
-            d for d in self.business.dishes
-            if item.name in (i.name for i in d.items)
-        ]
-
-        if dishes:
-            description += 'Used in {:,} {}:\n'.format(
-                len(dishes), utils.plural('dish', len(dishes)))
-            description += '- ' + '\n- '.join([str(d) for d in dishes])
-
-        return description.rstrip()
 
     def dish_mapping(self) -> dict:
         """Returns a mapping of indices to dishes.
@@ -167,8 +105,6 @@ class RestaurantManagerCLIMain(RestaurantManagerCLIBase, ManagerCLIMain):
 
 
 class RestaurantManagerCLIDishes(RestaurantManagerCLIBase, ManagerCLISubCMDBase):
-    doc_header = 'Dish Management'
-
     manager: RestaurantManager
 
     @staticmethod
@@ -176,7 +112,7 @@ class RestaurantManagerCLIDishes(RestaurantManagerCLIBase, ManagerCLISubCMDBase)
         if is_integer(arg):
             return print('That index does not exist!')
         else:
-            return print('Could not find a matching name for that dish.')
+            return print('That dish name does not exist! (check spelling)')
 
     def input_dish(self, prompt: str, *, cancellable=False) -> Optional[Dish]:
         """Prompt the user for an existing dish.
@@ -288,7 +224,7 @@ Usage: remove [name_or_index]"""
         if arg:
             # User supplied argument
             dish = self.manager.get_dish(arg)
-            if dish is None:
+            if not dish:
                 return self.print_dish_not_found(arg)
         else:
             # Prompt user for dish
@@ -316,7 +252,7 @@ Usage: show [name_or_index]"""
         if arg:
             # User supplied argument
             dish = self.manager.get_dish(arg)
-            if dish is None:
+            if not dish:
                 return self.print_dish_not_found(arg)
         else:
             # Prompt user for dish
@@ -325,5 +261,24 @@ Usage: show [name_or_index]"""
             if dish is None:
                 return print('Cancelled.')
 
+        try:
+            cost = utils.format_dollars(
+                business.cost_of_dish(dish, 1, average=True))
+        except ValueError:
+            cost = 'N/A; Missing ingredients'
+
         print(dish)
-        print(self.manager.describe_dish(dish))
+        print('Price:', utils.format_dollars(dish.price))
+        print('Average cost to produce:', cost)
+        if dish.sales is not None:
+            revenue = dish.revenue
+            expenses = dish.expenses
+            print("Last month's sales:", dish.sales)
+            print('Revenue:', utils.format_dollars(revenue))
+            print('Expenses:', utils.format_dollars(expenses))
+            print('Profit:', utils.format_dollars(revenue - expenses))
+        else:
+            print("Last month's sales: N/A")
+        print('Ingredients:')
+        for i in dish.items:
+            print(i)

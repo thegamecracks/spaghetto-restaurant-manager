@@ -47,16 +47,7 @@ class Dish:
     def to_dict(self):
         return asdict(self)
 
-    @staticmethod
-    def _from_dict_deserialize(d: dict):
-        items = d.get('items')
-        if items is not None:
-            d['items'] = [Item.from_dict(i) for i in items]
-        expenses_items = d.get('expenses_items')
-        if expenses_items is not None:
-            d['expenses_items'] = [Item.from_dict(i) for i in expenses_items]
-        return d
-
     @classmethod
     def from_dict(cls, d):
-        return cls(**cls._from_dict_deserialize(d))
+        d['items'] = [Item.from_dict(d) for d in d['items']]
+        return cls(**d)

@@ -124,10 +124,10 @@ class LoanMenu(Inventory):
                     # Always have at least one economic requirement
                     req_types_economic = [t for t in LoanRequirementType
                                           if t != LoanRequirementType.EMPLOYEES]
-                    number = len(req_types_economic)
-                    if rank != 'financial need':
-                        number = random.randint(1, min(2, len(req_types_economic)))
-                    req_types = random.sample(req_types_economic, number)
+                    req_types = random.sample(
+                        req_types_economic,
+                        random.randint(1, min(2, len(req_types_economic)))
+                    )
                 # Always have employee requirement for small business rank
                 if rank == 'small business' or random.randint(0, 1) and not rank == 'startup':
                     req_types.append(LoanRequirementType.EMPLOYEES)

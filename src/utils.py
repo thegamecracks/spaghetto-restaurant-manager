@@ -2,8 +2,8 @@ import decimal
 
 __all__ = [
     'case_preserving_replace', 'format_cents', 'format_dollars',
-    'format_weeks', 'fuzzy_match_word', 'human_join', 'parse_cents',
-    'parse_decimal', 'parse_dollars', 'plural', 'round_dollars'
+    'fuzzy_match_word', 'parse_cents', 'parse_decimal', 'parse_dollars',
+    'plural', 'round_dollars'
 ]
 
 
@@ -38,27 +38,6 @@ def format_dollars(dollars: decimal.Decimal):
     return '{}${}.{:02d}'.format(sign, dollar_part, cent_part)
 
 
-def format_weeks(weeks: int) -> str:
-    """Format a number of weeks into a human-readable string."""
-    if weeks == 0:
-        # NOTE: Unnecessary edge case but main purpose of this is a type check
-        return '0 weeks'
-
-    in_past = weeks < 0
-    years, weeks = divmod(weeks, 48)
-    months, weeks = divmod(weeks, 4)
-
-    s = []
-    if years:
-        s.append(f"{years:,} {plural('year', years)}")
-    if months:
-        s.append(f"{months:,} {plural('month', months)}")
-    if weeks or not s:
-        s.append(f"{weeks:,} {plural('week', weeks)}")
-
-    return human_join(s)
-
-
 def fuzzy_match_word(s: str, choices: list, return_possible=False) -> str:
     """Matches a string to given choices by token (case-insensitive).
 
@@ -76,7 +55,7 @@ def fuzzy_match_word(s: str, choices: list, return_possible=False) -> str:
                    `return_possible` is True.
 
     """
-    possible = list(choices) if not isinstance(choices, list) else choices
+    possible = choices
     possible_lower = [s.lower() for s in possible]
 
     # See if the phrase already exists
@@ -105,16 +84,6 @@ def fuzzy_match_word(s: str, choices: list, return_possible=False) -> str:
         possible_lower = [s.lower() for s in possible]
 
     return possible if return_possible and possible else None
-
-
-def human_join(items: list) -> str:
-    """Join a list of items in a human-readable representation."""
-    if len(items) > 2:
-        return ', '.join([str(s) for s in items[:-1]]) + f', and {items[-1]}'
-    elif len(items) == 2:
-        return f'{items[0]} and {items[1]}'
-    else:
-        return ', '.join([str(s) for s in items])
 
 
 def parse_cents(s: str) -> int:

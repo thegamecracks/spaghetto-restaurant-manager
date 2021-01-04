@@ -11,7 +11,6 @@ from . import utils
 from .business import Business
 from .cliutils import input_integer, input_money, input_boolean, is_integer, input_choice
 from .inventory import Inventory
-from .inventoryitem import InventoryItem
 from .item import Item
 from .loan import Loan
 from .loanmenu import LoanMenu
@@ -34,116 +33,6 @@ class Manager:
         """Delete the business's save file and mark this as deleted."""
         os.remove(self.filepath)
         self.deleted = True
-
-    @staticmethod
-    def describe_invitem(item: InventoryItem) -> str:
-        """Return a string describing a given inventory item.
-
-        Args:
-            item (InventoryItem)
-
-        Returns:
-            str
-
-        """
-        description = (
-            f'Quantity: {item.quantity}\n'
-            f'Total value: {utils.format_dollars(item.cost_of())}'
-        )
-        return description
-
-    @staticmethod
-    def describe_loan(loan: Loan) -> str:
-        """Return a string describing a given loan.
-
-        Args:
-            loan (Loan)
-
-        Returns:
-            str
-
-        """
-        description = (
-            'Term: {term} {terms}\n'
-            'Amount: {amount}\n'
-            'Remaining {payback} payments: {payments}\n'
-            'Next payment will be: {nextpayment}, in {nexttime}'
-        ).format(
-            term=loan.term,
-            terms=utils.plural('year', loan.term),
-            amount=utils.format_dollars(loan.amount),
-            payback=str(loan.payback_type),
-            payments=loan.remaining_payments,
-            nextpayment=utils.format_dollars(loan.get_next_payment()),
-            nexttime=utils.format_weeks(loan.remaining_weeks % loan.payback_type
-                                        or loan.payback_type)
-        )
-        return description
-
-    def get_invitem(self, s: Union[int, str]) -> InventoryItem:
-        """Lookup an InventoryItem by index or name.
-
-        Args:
-            s (Union[int, str])
-
-        Returns:
-            InventoryItem
-            None
-
-        """
-        inv = self.business.inventory
-        # Lookup by index
-        try:
-            index = int(s)
-        except ValueError:
-            pass
-        else:
-            mapping = self.invitem_mapping()
-            return mapping.get(index)
-
-        # Fuzzy lookup by name
-        return inv.find(s)
-
-    def get_loan(self, s: Union[int, str], menu: LoanMenu = None) -> Loan:
-        """Lookup a Loan by index or name.
-
-        Args:
-            s (Union[int, str])
-            menu (Optional[LoanMenu]): The menu to check for loans.
-                Defaults to the business's own loans.
-
-        Returns:
-            Loan
-            None
-
-        """
-        # Lookup by index
-        try:
-            index = int(s)
-        except ValueError:
-            pass
-        else:
-            mapping = self.loan_mapping(menu)
-            return mapping.get(index)
-
-        # Fuzzy lookup by name
-        return menu.find(s)
-
-    def loan_mapping(self, menu: LoanMenu = None):
-        """Returns a mapping of indices to business loans.
-        1: BMO "Petty Businesses" Loan
-        ...
-        If you want a mapping of a different set of loans (such as the
-        'loan_menu' metadata), you can pass that as an argument.
-        """
-        menu = self.business.loans if menu is None else menu
-        return {i: loan for i, loan in enumerate(menu, start=1)}
-
-    def invitem_mapping(self) -> dict:
-        """Returns a mapping of indices to inventory items.
-        1: Dark Coffee Beans
-        ... """
-        return {i: item for i, item in enumerate(self.business.inventory, start=1)}
 
     def reload_business(self, filepath=None):
         """Reload the business's data from `filepath`.
@@ -456,7 +345,32 @@ class ManagerCLIFinancesLoans(ManagerCLISubCMDBase):
         if is_integer(arg):
             return print('That index does not exist!')
         else:
-            return print('Could not find a matching name for that loan.')
+            return print('That loan name does not exist! (check spelling)')
+
+    @staticmethod
+    def get_loan(menu: LoanMenu, s: Union[int, str]) -> Loan:
+        """Lookup a Dish by index or name.
+
+        Args:
+            menu (LoanMenu): The menu to check for loans.
+            s (Union[int, str])
+
+        Returns:
+            Loan
+            None
+
+        """
+        # Lookup by index
+        try:
+            index = int(s)
+        except ValueError:
+            pass
+        else:
+            mapping = {i: loan for i, loan in enumerate(menu, start=1)}
+            return mapping.get(index)
+
+        # Fuzzy lookup by name
+        return menu.find(s)
 
     def input_loan(self, menu: LoanMenu, prompt: str, *, cancellable=False) \
             -> Optional[Loan]:
@@ -476,12 +390,12 @@ class ManagerCLIFinancesLoans(ManagerCLISubCMDBase):
             prompt += '(type nothing to cancel) '
 
         arg = input(prompt).strip()
-        loan = self.manager.get_loan(arg, menu)
+        loan = self.get_loan(menu, arg)
         while loan is None:
             if not arg and cancellable:
                 return
             arg = input('Could not find that loan: ').strip()
-            loan = self.manager.get_loan(arg, menu)
+            loan = self.get_loan(menu, arg)
         return loan
 
     def do_apply(self, arg):
@@ -498,8 +412,8 @@ Usage: apply [name_or_index]"""
         loan_menu: LoanMenu = business.metadata['loan_menu']
         if arg:
             # User supplied argument
-            loan = self.manager.get_loan(arg, loan_menu)
-            if loan is None:
+            loan = self.get_loan(loan_menu, arg)
+            if not loan:
                 return self.print_loan_not_found(arg)
         else:
             loan = self.input_loan(
@@ -567,11 +481,10 @@ Usage: apply [name_or_index]"""
             loan.reset_remaining_weeks()
 
         if negotiate_payback:
-            payback_types = (LoanPaybackType.MONTHLY, LoanPaybackType.YEARLY)
+            payback_types = list(LoanPaybackType)
             loan.payback_type = input_choice(
                 'How frequently do you want to pay this loan? ',
-                payback_types,
-                fuzzy_match=True
+                payback_types
             )
             print('Payments: {} x {}'.format(
                 loan.remaining_payments,
@@ -580,8 +493,7 @@ Usage: apply [name_or_index]"""
             while not input_boolean('Confirm selection: (y/n) '):
                 loan.payback_type = input_choice(
                     'How frequently do you want to pay this loan? ',
-                    payback_types,
-                    fuzzy_match=True
+                    payback_types
                 )
                 print('Payments: {} x {}'.format(
                     loan.remaining_payments,
@@ -625,8 +537,8 @@ Usage: show [name_or_index]"""
         loan_menu = self.manager.business.loans
         if arg:
             # User supplied argument
-            loan = self.manager.get_loan(arg, loan_menu)
-            if loan is None:
+            loan = self.get_loan(loan_menu, arg)
+            if not loan:
                 return self.print_loan_not_found(arg)
         else:
             loan = self.input_loan(
@@ -636,8 +548,18 @@ Usage: show [name_or_index]"""
             if loan is None:
                 return print('Cancelled.')
 
+        print(loan.to_dict())
         print(loan.name)
-        print(self.manager.describe_loan(loan))
+        print('Term: {} {}'.format(loan.term, utils.plural('year', loan.term)))
+        print(f'Amount: {utils.format_dollars(loan.amount)}')
+        remaining_payments = loan.remaining_payments
+        print('Remaining {} payments: {}'.format(
+            str(loan.payback_type),
+            remaining_payments
+        ))
+        print('Next payment will be: {}'.format(
+            utils.format_dollars(loan.get_next_payment())
+        ))
 
 
 class ManagerCLIFinances(ManagerCLISubCMDBase):
@@ -749,38 +671,6 @@ Your average expenses will only include what you have spent on inventory."""
 class ManagerCLIInventory(ManagerCLISubCMDBase):
     doc_header = 'Inventory Management'
 
-    @staticmethod
-    def print_item_not_found(arg):
-        if is_integer(arg):
-            return print('That index does not exist!')
-        else:
-            return print('Could not find a matching name for that item.')
-
-    def input_item(self, prompt: str, *, cancellable=False) \
-            -> Optional[InventoryItem]:
-        """Prompt the user for an existing item.
-
-        Args:
-            prompt (str): The initial message to show the user.
-            cancellable (bool): Whether the user can cancel the prompt or not.
-
-        Returns:
-            InventoryItem
-            None: if `cancellable` and user inputs nothing.
-
-        """
-        if cancellable:
-            prompt += '(type nothing to cancel) '
-
-        arg = input(prompt).strip()
-        loan = self.manager.get_invitem(arg)
-        while loan is None:
-            if not arg and cancellable:
-                return
-            arg = input('Could not find that item: ').strip()
-            loan = self.manager.get_invitem(arg)
-        return loan
-
     def update_conditional(self):
         self.set_conditional(
             'do_buy', self.cond_buy,
@@ -866,85 +756,3 @@ class ManagerCLIInventory(ManagerCLISubCMDBase):
         print('Inventory:')
         for i, item in enumerate(self.manager.business.inventory, start=1):
             print(f'{i:,}: {item}')
-
-    def do_remove(self, arg):
-        """Remove some number of an item from inventory.
-Usage: remove [name_or_index]"""
-        def cancel():
-            print('Cancelled removal.')
-
-        business = self.manager.business
-        if not business.inventory:
-            return print('Your inventory currently has no items.')
-
-        arg = arg.strip()
-
-        if arg:
-            # User supplied argument
-            item = self.manager.get_invitem(arg)
-            if item is None:
-                return self.print_item_not_found(arg)
-        else:
-            item = self.input_item(
-                "What is the item you want to remove? ", cancellable=True)
-            if item is None:
-                return print('Cancelled deletion.')
-
-        maximum = item.quantity
-        num = 0
-        if maximum != 0:
-            num = input_integer(
-                f'How much of this item do you want to remove? ({maximum:,} total) ',
-                minimum=0, maximum=maximum, default=0
-            )
-            if num == 0:
-                return cancel()
-
-        prompt = 'Are you sure you want to completely remove this item? (y/n) '
-        if maximum == 0:
-            prompt = 'Are you sure you want to remove this item entry? (y/n) '
-        elif num != maximum:
-            prompt = (f'Are you sure you want to remove {num:,} '
-                      'of this item? (y/n) ')
-
-        print(item.name)
-        if num != 0:
-            print('Value of items at your given quantity:',
-                  utils.format_dollars(item.cost_of(num)),
-                  f'({num / maximum:.0%})')
-
-        if input_boolean(prompt):
-            if num == maximum:
-                business.inventory.remove(item)
-            else:
-                item.subtract(num)
-            if num == 0:
-                print('Removed item!')
-            else:
-                print('Removed {} {}!'.format(num, utils.plural('item', num)))
-        else:
-            return cancel()
-
-    def do_show(self, arg):
-        """Show the details on an inventory item.
-Usage: show [name_or_index]"""
-        if not self.manager.business.inventory:
-            return print('Your business currently has no items.')
-
-        arg = arg.strip()
-
-        if arg:
-            # User supplied argument
-            item = self.manager.get_invitem(arg)
-            if item is None:
-                return self.print_item_not_found(arg)
-        else:
-            item = self.input_item(
-                "What is the item you want to show? ",
-                cancellable=True
-            )
-            if item is None:
-                return print('Cancelled.')
-
-        print(item.name)
-        print(self.manager.describe_invitem(item))
