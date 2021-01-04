@@ -73,13 +73,16 @@ class Restaurant(Business):
         Raises:
             ValueError: Either n is greater than the quantity of one of
                 the inventory items; a requirement is missing from
-                the inventory; or one of the inventory items was empty.
+                the inventory; or one of the inventory items was empty/missing.
 
         """
         cost = decimal.Decimal()
 
         for i in dish.items:
-            inv_item = self.inventory[i.name]
+            try:
+                inv_item = self.inventory[i.name]
+            except KeyError as e:
+                raise ValueError(f'Item {i!r} does not exist in inventory') from e
 
             if average:
                 try:
