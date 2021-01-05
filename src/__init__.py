@@ -16,7 +16,6 @@ from . import loanrequirementtype
 from . import manager
 from . import restaurant
 from . import restaurantmanager
-from . import restaurantmanagergui
 from . import transaction
 from . import transactiontype
 from . import utils
@@ -38,9 +37,6 @@ from .loanrequirementtype import *
 from .manager import *
 from .restaurant import *
 from .restaurantmanager import *
-from .restaurantmanagergui import *
 from .transaction import *
 from .transactiontype import *
 from .utils import *
-from .managergui import *
-from .winlayouts import *

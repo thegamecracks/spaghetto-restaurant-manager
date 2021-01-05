@@ -1,6 +1,7 @@
 import PySimpleGUI as sg
 
-from .managergui import menuloop
+from .inventory import Inventory
+from .managergui import rungui
 from .restaurantmanager import RestaurantManager
 from . import restaurantmanagerguilayouts as layouts
 from . import utils
@@ -48,6 +49,8 @@ class GUI:
             prompts.append((layouts.setup_balance, setup_balance_handler))
         if business.employee_count is None:
             prompts.append((layouts.setup_employees, setup_employees_handler))
+        if business.inventory is None:
+            business.inventory = Inventory()
 
         for layout, handler in prompts:
             win = sg.Window('Business Setup', layout, finalize=True)
@@ -66,7 +69,7 @@ class GUI:
         stop = self.setup_business()
         if stop:
             return
-        menuloop()
+        rungui(self.manager)
 
 
 class WindowSetup:
