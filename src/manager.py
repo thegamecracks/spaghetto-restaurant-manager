@@ -314,7 +314,6 @@ class ManagerCLIBase(cmd.Cmd):
     def postcmd(self, stop, line):
         """Called after a command dispatch is finished.
         Prints a message if the business's balance is negative."""
-        self.manager.business.balance = decimal.Decimal(1.00)
         balance = self.manager.business.balance
         if balance < 0:
             print("Warning: the business's balance is negative! "
@@ -367,9 +366,9 @@ WIP: This currently only prints the inventory of the business."""
 
     def do_step(self, arg):
         """Go to the next month."""
-        business = Business()
+        business = self.manager.business
         business.step(weeks=4)
-        print(business.format_date(Business.total_weeks))
+        print(business.format_date(business.total_weeks))
 
     def do_time(self, arg):
         """View the current year, month, and week."""

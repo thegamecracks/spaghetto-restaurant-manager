@@ -103,13 +103,13 @@ class Business:
         success = self.withdraw(f'{item}', -item.price, type_=TransactionType.PURCHASE)
 
         if success:
-            inv_item = Business.inventory.get(item.name)
+            inv_item = self.inventory.get(item.name)
             if inv_item is not None:
                 # Update item
                 inv_item += item
             else:
                 # Add new item
-                Business.inventory.add(item)
+                self.inventory.add(item)
 
         return success
 
@@ -132,13 +132,13 @@ class Business:
 
         """
         dollars = abs(dollars)
-        print(Business.balance)
-        if Business.balance is None:
-            Business.balance = decimal.Decimal()
-        print(dollars)
-        Business.balance += dollars
+
+        if self.balance is None:
+            self.balance = decimal.Decimal()
+        self.balance += dollars
+
         if log:
-            Business.add_transaction(Business(), title, dollars, type_)
+            self.add_transaction(title, dollars, type_)
 
         return True
 
@@ -154,10 +154,10 @@ class Business:
     def generate_metadata(self):
         """Generate some metadata for the business based on its current info.
         This can be extended by subclasses."""
-        Business().metadata.setdefault('total_loans', 0)
-        if 'loan_menu' not in Business().metadata:
-            Business().metadata['loan_menu'] = LoanMenu.from_random(
-                Business().RANDOM_LOAN_COUNT)
+        self.metadata.setdefault('total_loans', 0)
+        if 'loan_menu' not in self.metadata:
+            self.metadata['loan_menu'] = LoanMenu.from_random(
+                self.RANDOM_LOAN_COUNT)
 
     def get_monthly_expenses(self) -> decimal.Decimal:
         """Calculate the average monthly expenses using purchases
@@ -168,8 +168,8 @@ class Business:
         that could make this return negative.
 
         """
-        after = max(0, Business.total_weeks - 48)
-        transactions = Business.get_transactions(Business(),
+        after = max(0, self.total_weeks - 48)
+        transactions = self.get_transactions(
             after=after, type_=TransactionType.PURCHASE)
 
         if not transactions:
@@ -179,13 +179,13 @@ class Business:
     def get_monthly_revenue(self) -> decimal.Decimal:
         """Calculate the average monthly revenue using sales
         within one year."""
-        after = max(0, Business.total_weeks - 48)
-        transactions = Business.get_transactions(Business(),
-                                                 after=after, type_=TransactionType.SALES)
+        after = max(0, self.total_weeks - 48)
+        transactions = self.get_transactions(
+            after=after, type_=TransactionType.SALES)
 
         if not transactions:
             return decimal.Decimal()
-        time_span = decimal.Decimal(Business.total_weeks - after)
+        time_span = decimal.Decimal(self.total_weeks - after)
         return sum(t.dollars for t in transactions) / max(1, time_span / 4)
 
     def get_transactions(self, limit: int = None, after: int = None,
@@ -207,7 +207,7 @@ class Business:
                 the transaction should be included or not.
 
         """
-        transactions = sorted(Business().transactions, key=lambda t: t.week)
+        transactions = sorted(self.transactions, key=lambda t: t.week)
 
         query = []
         for t in transactions:
@@ -290,12 +290,12 @@ class Business:
             raise ValueError(f'weeks ({weeks}) cannot be negative')
 
         for _ in range(weeks):
-            Business.total_weeks += 1
-            Business.on_next_week(Business())
-            if Business.total_weeks % 4 == 0:
-                Business.on_next_month(Business())
-            if Business.total_weeks % 48 == 0:
-                Business.on_next_year(Business())
+            self.total_weeks += 1
+            self.on_next_week()
+            if self.total_weeks % 4 == 0:
+                self.on_next_month()
+            if self.total_weeks % 48 == 0:
+                self.on_next_year()
 
     def withdraw(self, title: str, dollars: decimal.Decimal,
                  type_: TransactionType = None, force=False, log=True) -> bool:
@@ -322,12 +322,12 @@ class Business:
 
         """
         dollars = abs(dollars)
-        if force or Business.balance >= dollars:
-            Business.balance -= dollars
+        if force or self.balance >= dollars:
+            self.balance -= dollars
             if log:
                 self.add_transaction(title, -dollars, type_)
             return True
-        Business.balance -= self.NSF_FEE
+        self.balance -= self.NSF_FEE
         if log:
             self.add_transaction(f'Declined transaction with NSF fee: {title}',
                                  -self.NSF_FEE, type_)
@@ -386,7 +386,6 @@ class Business:
     @classmethod
     def from_file(cls, f):
         """Create a business from either a file or filepath."""
-
         def decrypt(encoded):
             encoded = zlib.decompress(encoded)
             text = base64.b64decode(encoded).decode('utf-8')
