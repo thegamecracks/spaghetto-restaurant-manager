@@ -22,9 +22,10 @@ class RestaurantManager(Manager):
         super().__init__(business, *args, **kwargs)
 
     def describe_dish(self, dish: Dish) -> str:
-        try:
-            cost = utils.format_dollars(self.business.cost_of_dish(dish, 1, average=True))
-        except ValueError:
+        cost = self.business.cost_of_dish(dish, 1, average=True, default=None)
+        if cost is not None:
+            cost = utils.format_dollars(cost)
+        else:
             cost = 'N/A; Missing ingredients'
 
         description = (
