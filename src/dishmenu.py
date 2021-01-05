@@ -8,7 +8,7 @@ __all__ = ['DishMenu']
 
 class DishMenu(Inventory):
     """A subclass of Inventory designed for dishes."""
-    _DEFAULT = object()
+    _MISSING = object()
     _INV_TYPE = Dish
     _items: Dict[str, _INV_TYPE]
 
@@ -28,9 +28,9 @@ class DishMenu(Inventory):
     def get(self, key: str, default=None) -> _INV_TYPE:
         return super().get(key, default)
 
-    def pop(self, key: str, default=_DEFAULT) -> _INV_TYPE:
-        # Can't use super for this; _DEFAULT is unique to this class
-        if default is self._DEFAULT:
+    def pop(self, key: str, default=_MISSING) -> _INV_TYPE:
+        # Can't use super for this; _MISSING is unique to this class
+        if default is self._MISSING:
             return self._items.pop(key)
         return self._items.pop(key, default)
 

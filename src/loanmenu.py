@@ -22,7 +22,7 @@ class LoanMenu(Inventory):
         'financial need': ('Financial Need', 'Financial Aid', 'Financial Relief',
                            'Extreme Relief')
     }
-    _DEFAULT = object()
+    _MISSING = object()
     _INV_TYPE = Loan
     _items: Dict[str, Loan]
 
@@ -42,9 +42,9 @@ class LoanMenu(Inventory):
     def get(self, key: str, default=None) -> _INV_TYPE:
         return super().get(key, default)
 
-    def pop(self, key: str, default=_DEFAULT) -> _INV_TYPE:
-        # Can't use super for this; _DEFAULT is unique to this class
-        if default is self._DEFAULT:
+    def pop(self, key: str, default=_MISSING) -> _INV_TYPE:
+        # Can't use super for this; _MISSING is unique to this class
+        if default is self._MISSING:
             return self._items.pop(key)
         return self._items.pop(key, default)
 
@@ -124,10 +124,10 @@ class LoanMenu(Inventory):
                     # Always have at least one economic requirement
                     req_types_economic = [t for t in LoanRequirementType
                                           if t != LoanRequirementType.EMPLOYEES]
-                    req_types = random.sample(
-                        req_types_economic,
-                        random.randint(1, min(2, len(req_types_economic)))
-                    )
+                    number = len(req_types_economic)
+                    if rank != 'financial need':
+                        number = random.randint(1, min(2, len(req_types_economic)))
+                    req_types = random.sample(req_types_economic, number)
                 # Always have employee requirement for small business rank
                 if rank == 'small business' or random.randint(0, 1) and not rank == 'startup':
                     req_types.append(LoanRequirementType.EMPLOYEES)

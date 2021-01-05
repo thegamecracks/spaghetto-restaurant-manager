@@ -5,7 +5,7 @@ __all__ = ['InventoryBase']
 
 
 class InventoryBase(ABC):
-    _DEFAULT = object()
+    _MISSING = object()
     _INV_TYPE = object
     _items: Dict[str, _INV_TYPE]
 
@@ -64,11 +64,11 @@ class InventoryBase(ABC):
         """Return the value for key if key is in the dictionary, else default."""
         return self._items.get(key, default)
 
-    def pop(self, key, default=_DEFAULT):
+    def pop(self, key, default=_MISSING):
         """Remove and return an item from the inventory.
         If key is not found, default is returned if given, else KeyError is raised.
         """
-        if default is self._DEFAULT:
+        if default is self._MISSING:
             return self._items.pop(key)
         return self._items.pop(key, default)
 
