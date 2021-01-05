@@ -320,12 +320,40 @@ def rungui(manager: RestaurantManager):
                   winloanlist.Hide()
                   break
                 if eventloanlist is not None:
-                  selectloan = business.metadata['loan_menu'][str(valuesloanlist['-loanlistboxselect-']).strip("'[]")]
-                  loandetail = Manager.describe_loan(selectloan)
+                  loan = business.metadata['loan_menu'][str(valuesloanlist['-loanlistboxselect-']).strip("'[]")]
+                  loandetails = ''
 
-                  loaninfo = sg.popup_scrolled(
-                    f"{loandetail}"
-                  )
+                  name = 'subsidy' if loan.is_subsidy else 'loan'
+
+                  loandetails += f'Amount: {utils.format_dollars(loan.amount)}\n'
+                  if not loan.is_subsidy:
+                      rate_type = str(loan.interest_type)
+                      rate_frequency = loan.interest_type.frequency
+                      if rate_frequency:
+                          rate_type = f'{rate_frequency} {rate_type}ed'
+                      loandetails += '{} interest rate: {:%}\n'.format(
+                          rate_type.capitalize(),
+                          loan.rate
+                      )
+                      if loan.term is not None and loan.payback_type is not None:
+                          remaining_payments = loan.remaining_payments
+                          loandetails += 'Total payments: {} ({})\n'.format(
+                              remaining_payments,
+                              str(loan.payback_type)
+                          )
+                      elif loan.payback_type is not None:
+                          # Can't calculate # of payments, user has to input the term
+                          loandetails += f'Payment frequency: {loan.payback_type}\n'
+
+                  qualified = loan.check(business)
+                  if loan.requirements:
+                      meets = 'meets' if qualified else 'does not meet'
+                      loandetails += f'Your business {meets} the requirements for this {name}:\n'
+                      for req in loan.requirements:
+                        sign = '+' if req.check(business) else '-'
+                        loandetails += f'{sign}, {req}'
+
+                  loaninfo = sg.popup_scrolled(*loandetails.strip().split('\n'))
 
 
         if event4 == 'Revenue' and not win4_1_active:
