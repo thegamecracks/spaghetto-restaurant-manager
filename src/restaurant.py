@@ -79,15 +79,16 @@ class Restaurant(Business):
         cost = decimal.Decimal()
 
         for i in dish.items:
-            inv_item = self.inventory[i.name]
+            inv_item = Business.inventory[i.name]
 
             if average:
                 try:
-                    cost += inv_item.price / inv_item.quantity * i.quantity
+                    cost += (inv_item.price / inv_item.quantity) * i.quantity
                 except (ZeroDivisionError, decimal.InvalidOperation) as e:
                     raise ValueError(
                         f'Inventory item was empty: {inv_item!r}') from e
             else:
+                print("h")
                 cost += inv_item.cost_of(n, lowest_first=lowest_first)
 
         return n * cost
@@ -128,7 +129,7 @@ class Restaurant(Business):
 
         items = []
         for i in dish.items:
-            inv_item = self.inventory.get(i.name)
+            inv_item = Business.inventory.get(i.name)
             n = i.quantity * quantity
             if inv_item is None or inv_item.quantity < n:
                 return
@@ -149,7 +150,7 @@ class Restaurant(Business):
 
     def update_popularity(self):
         old = self.metadata.get('popularity')
-        new = self.func_popularity(self.balance)
+        new = self.func_popularity(Business.balance)
 
         final = new
         if old is not None:
@@ -178,7 +179,7 @@ class Restaurant(Business):
 
         """
         sales: Dict[Dish, int] = collections.Counter()
-        for d in self.dishes:
+        for d in Restaurant.dishes:
             d: Dish
             sales[d] = d.sales
             d.expenses_items = [i.copy(price=0) for i in d.items]
@@ -188,7 +189,7 @@ class Restaurant(Business):
             insufficient = []
 
             for k, v in sales.items():
-                cost = self.sell_dish(k)
+                cost = Restaurant.sell_dish(Restaurant(), k)
 
                 if cost is not None:
                     sales[k] -= 1
@@ -201,8 +202,9 @@ class Restaurant(Business):
 
             for dish in insufficient:
                 del sales[dish]
-
-        self.deposit('Dish Sales', revenue, TransactionType.SALES)
+        print(expenses)
+        print("expenses ^")
+        Business.deposit(Business(), 'Dish Sales', revenue, TransactionType.SALES)
 
         return revenue, expenses
 
@@ -218,14 +220,14 @@ class Restaurant(Business):
             int: The number of dishes updated.
 
         """
-        popularity = min(5., self.update_popularity() / 200 + 0.5)
+        popularity = min(5., Restaurant.update_popularity(Restaurant()) / 200 + 0.5)
         open_hours = 8
-        num_dishes = len(self.dishes)
+        num_dishes = len(Restaurant.dishes)
         randomness = random.uniform(0.81, 0.86)
 
         i = 0
         dish: Dish
-        for dish in self.dishes:
+        for dish in Restaurant.dishes:
             if none_only and dish.sales is not None:
                 continue
             dollars = float(dish.price)
@@ -240,7 +242,7 @@ class Restaurant(Business):
             # with a logistic function
             try:
                 cost_price_ratio = float(
-                    self.cost_of_dish(dish, 1, average=True) / dish.price)
+                    Restaurant.cost_of_dish(Restaurant(), dish, 1, average=True) / dish.price)
             except ValueError:
                 cost_price_ratio = 0.
             cost_factor = 0.2 / (1 + math.e ** (-20 * cost_price_ratio)) - 0.1
