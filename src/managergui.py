@@ -2,24 +2,12 @@
 we mean this code is actual spaghetti"""
 import PySimpleGUI as sg
 
-from . import utils
-from .restaurantmanager import RestaurantManager
-from .restaurant import Restaurant
-from .inventory import Inventory
-from .item import Item
-from .dish import Dish
-from .dishmenu import DishMenu
 from .guiutils import *
-from .manager import Manager, ManagerCLIBase, ManagerCLIMain
-from .loan import Loan
-from .loanmenu import LoanMenu
-from .loanpaybacktype import LoanPaybackType
-from .transaction import Transaction
+from .item import Item
+from .manager import Manager
+from .restaurant import Restaurant
+from .restaurantmanager import RestaurantManager
 from .winlayouts import *
-
-import contextlib
-import datetime
-import traceback
 
 sg.theme('BluePurple')
 
@@ -128,7 +116,6 @@ def rungui(manager: RestaurantManager):
                   itemunit = str(values2_2['-itemunit-'])
                   itemprice = utils.parse_dollars(values2_2['-itemprice-'])
                   item = Item(itemname, itemquantity, itemunit, itemprice)
-                  business.balance = balance
                   business.buy_item(Item(itemname, itemquantity, itemunit, itemprice))
                   win2_2['-itemquantity-'].update('')
                   win2_2['-itemunit-'].update('')
@@ -289,6 +276,11 @@ def rungui(manager: RestaurantManager):
               removeemployee = int(sg.popup_get_text('How many employees would you like to remove?'))
               if removeemployee != '':
                 business.employee_count -= removeemployee
+            if event4_1 == 'Employee Count':
+                sg.popup('Your business has {} {}.'.format(
+                    business.employee_count,
+                    utils.plural('employee', business.employee_count)
+                ))
 
         if event4 == 'Loans' and not win5_active:
           win5.finalize()

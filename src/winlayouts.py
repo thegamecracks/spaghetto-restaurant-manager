@@ -1,9 +1,6 @@
 import PySimpleGUI as sg
-from src import business
 # Window layouts to use in gui managers
 sg.theme('BluePurple')
-
-balance = business.Business.balance
 
 # First launch layouts
 init_layout = [
@@ -27,7 +24,7 @@ main_menu_layout = [
 inv_layout = [
     [sg.Text("Inventory Management")],
     [sg.Text("")],
-    [sg.Button('Back'), sg.Button('Buy Items'), sg.Button('List Items'), sg.Button('Transaction History')]]
+    [sg.Button('Back'), sg.Button('Buy Items'), sg.Button('List Items')]]
 
 dishes_layout = [
     [sg.Text("Dishes Menu")],
@@ -55,7 +52,7 @@ buy_items_layout = [
 new_item_layout = [
     [sg.Text("Create a new item to purchase.")],
     [sg.Text("Quantity to buy:"), sg.Input(key='-itemquantity-')],
-    [sg.Text("Unit of item (g, ml):"), sg.Input(key='-itemunit-')],
+    [sg.Text("Unit of item (gram, millilitre, cup...):"), sg.Input(key='-itemunit-')],
     [sg.Text("Total price in $:"), sg.Input(key='-itemprice-')],
     [sg.Button('Enter')],
     [sg.Button('Cancel')]]
