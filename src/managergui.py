@@ -36,6 +36,7 @@ business = Business
 restaurant = Restaurant
 manager = Manager
 inv = Inventory()
+loanmenu = LoanMenu()
 dishinv = DishMenu()
 balance = None
 # initial business setup
@@ -381,8 +382,31 @@ def menuloop():
                                     winloanlist.Hide()
                                     break
                                 if eventloanlist is not None:
+                                    selectloan = loanmenu[str(valuesloanlist['-loanlistboxselect-']).strip("'[]")]
+
+                                    rate_type = str(selectloan.interest_type)
+                                    rate_frequency = selectloan.interest_type.frequency
+                                    if rate_frequency:
+                                        rate_type = f'{rate_frequency} {rate_type}ed'
+                                    interestrate = '{} interest rate: {:%}'.format(
+                                        rate_type.capitalize(),
+                                        selectloan.rate
+                                    )
+
+                                    loanpayments = ('Payment frequency:', selectloan.payback_type)
+                                    if selectloan.term is not None and selectloan.payback_type is not None:
+                                        remaining_payments = selectloan.remaining_payments
+                                        loanpayments = 'Total payments: {} ({})'.format(
+                                            remaining_payments,
+                                            str(selectloan.payback_type)
+                                        )
+
                                     loaninfo = sg.popup_scrolled(
-                                        f""
+                                        f"{selectloan}",
+                                        f"Amount: {utils.format_dollars(selectloan.amount)}",
+                                        f"{interestrate}",
+                                        f"{loanpayments}"
+                                        f"{selectloan.requirements}"
                                     )
 
 

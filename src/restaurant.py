@@ -143,7 +143,7 @@ class Restaurant(Business):
 
         items = []
         for i in dish.items:
-            inv_item = Business.inventory.get(i.name)
+            inv_item = self.inventory.get(i.name)
             n = i.quantity * quantity
             if inv_item is None or inv_item.quantity < n:
                 return
@@ -164,7 +164,7 @@ class Restaurant(Business):
 
     def update_popularity(self):
         old = self.metadata.get('popularity')
-        new = self.func_popularity(Business.balance)
+        new = self.func_popularity(self.balance)
 
         final = new
         if old is not None:
@@ -197,7 +197,7 @@ class Restaurant(Business):
 
         """
         sales: Dict[Dish, int] = collections.Counter()
-        for d in Restaurant.dishes:
+        for d in self.dishes:
             d: Dish
             sales[d] = d.sales
             d.expenses_items = [i.copy(price=0) for i in d.items]
@@ -207,7 +207,7 @@ class Restaurant(Business):
             insufficient = []
 
             for k, v in sales.items():
-                cost = Restaurant.sell_dish(Restaurant(), k)
+                cost = self.sell_dish(k)
 
                 if cost is not None:
                     sales[k] -= 1
@@ -220,9 +220,8 @@ class Restaurant(Business):
 
             for dish in insufficient:
                 del sales[dish]
-        print(expenses)
-        print("expenses ^")
-        Business.deposit(Business(), 'Dish Sales', revenue, TransactionType.SALES)
+
+        self.deposit('Dish Sales', revenue, TransactionType.SALES)
 
         return revenue, expenses
 
@@ -242,14 +241,14 @@ class Restaurant(Business):
             int: The number of dishes updated.
 
         """
-        popularity = min(5., Restaurant.update_popularity(Restaurant()) / 200 + 0.5)
+        popularity = min(5., self.update_popularity() / 200 + 0.5)
         open_hours = 8
-        num_dishes = len(Restaurant.dishes)
+        num_dishes = len(self.dishes)
         randomness = random.uniform(0.81, 0.86)
 
         i = 0
         dish: Dish
-        for dish in Restaurant.dishes:
+        for dish in self.dishes:
             if none_only and dish.sales is not None:
                 continue
             dollars = float(dish.price)
