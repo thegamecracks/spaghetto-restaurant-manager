@@ -1,4 +1,6 @@
 # The Spaghetto Restaurant Manager
+<img src="https://github.com/twitter/twemoji/blob/master/assets/svg/1f35d.svg" width="100%" height="200">
+
 (Submission for a hackathon)
 
 The all new fancy restaurant managing program has just come into the market!
@@ -20,6 +22,7 @@ choices when staying afloat amongst the pandemic!
   - Generating dish sales considering multiple factors
     - Viewing the profit made by each dish
   - Tweaking your current number of employees
+- Autosave system for resuming management across sessions
 
 ---
 
