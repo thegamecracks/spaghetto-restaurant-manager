@@ -26,6 +26,7 @@ sg.theme('BluePurple')
 
 def rungui(manager: RestaurantManager):
     business = manager.business
+    inv = business.inventory
 
     win1 = sg.Window('Spaghetto Manager 🍝', main_menu_layout)
     win2 = sg.Window('Spaghetto Manager 🍝 Inventory', inv_layout)
@@ -129,7 +130,7 @@ def rungui(manager: RestaurantManager):
                                     itemprice = utils.parse_dollars(values2_2['-itemprice-'])
                                     item = Item(itemname, itemquantity, itemunit, itemprice)
                                     business.balance = balance
-                                    business.buy_item(Business(), Item(itemname, itemquantity, itemunit, itemprice))
+                                    business.buy_item(Item(itemname, itemquantity, itemunit, itemprice))
                                     inv.add(item)
                                     business.inv = inv
                                     win2_2['-itemquantity-'].update('')
