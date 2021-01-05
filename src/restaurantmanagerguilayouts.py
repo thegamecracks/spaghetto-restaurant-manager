@@ -8,6 +8,6 @@ setup_balance = [
 ]
 
 setup_employees = [
-    [sg.Text("What is your business's current balance? $"), sg.InputText(key='input')],
+    [sg.Text("How many employees do you have? "), sg.InputText(key='input')],
     [sg.Button('Enter'), sg.Button('Exit')]
 ]

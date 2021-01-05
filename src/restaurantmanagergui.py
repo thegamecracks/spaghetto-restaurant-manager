@@ -49,9 +49,8 @@ class GUI:
         if business.employee_count is None:
             prompts.append((layouts.setup_employees, setup_employees_handler))
 
-        print(len(prompts))
         for layout, handler in prompts:
-            win = sg.Window('Business Setup', layout, no_titlebar=True, finalize=True)
+            win = sg.Window('Business Setup', layout, finalize=True)
             while True:
                 event, values = win.read()
                 if event in (sg.WIN_CLOSED, 'Exit'):
@@ -61,7 +60,7 @@ class GUI:
                     win.close()
                     break
 
-        return True
+        return False
 
     def run(self):
         stop = self.setup_business()
