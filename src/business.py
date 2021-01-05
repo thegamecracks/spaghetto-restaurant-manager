@@ -388,20 +388,25 @@ class Business:
         """Create a business from either a file or filepath."""
 
         def decrypt(encoded):
-            text = zlib.decompress(encoded)
+            encoded = zlib.decompress(encoded)
             text = base64.b64decode(encoded).decode('utf-8')
             return cls.from_dict(json.loads(text, cls=JSONDecoder))
 
         if isinstance(f, str):
-            with open(f, encoding='utf-8') as file:
-                text = file.read()
-                try:
-                    return cls.from_dict(json.loads(text, cls=JSONDecoder))
-                except json.JSONDecodeError:
-                    return decrypt(text)
+            try:
+                with open(f, encoding='utf-8') as file:
+                    text = file.read()
+            except UnicodeDecodeError:
+                with open(f, 'rb') as file:
+                    text = file.read()
+
+            try:
+                return cls.from_dict(json.loads(text, cls=JSONDecoder))
+            except Exception:
+                return decrypt(text)
 
         text = f.read()
         try:
             return cls.from_dict(json.loads(text, cls=JSONDecoder))
-        except json.JSONDecodeError:
+        except Exception:
             return decrypt(text)

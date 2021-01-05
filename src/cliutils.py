@@ -40,11 +40,11 @@ def input_choice(prompt: str, choices: list, fuzzy_match=False):
 
     def parse(s):
         if fuzzy_match:
-            return utils.fuzzy_match_word(s, choices)
+            return lowercase_mapping.get(
+                utils.fuzzy_match_word(s, lowercase_mapping))
         return lowercase_mapping.get(s)
 
-    if not fuzzy_match:
-        lowercase_mapping = {str(c).lower().strip(): c for c in choices}
+    lowercase_mapping = {str(c).lower().strip(): c for c in choices}
 
     choices_str = ', '.join([str(c) for c in choices])
 
@@ -58,16 +58,21 @@ def input_choice(prompt: str, choices: list, fuzzy_match=False):
     return meaning
 
 
-def input_integer(prompt, minimum=None, maximum=None):
+def input_integer(prompt, minimum=None, maximum=None, default=None):
     """
 
     Args:
         prompt (str): The initial message to prompt the user.
         minimum (Optional[int]): The minimum value (inclusive).
         maximum (Optional[int]): The maximum value (inclusive).
+        default (Optional[int]): The default value to return if
+            the user inputs nothing. This cannot be a string.
 
     """
     def parse(s):
+        if not s and default is not None:
+            return default
+        s = s.replace(',', '')
         try:
             s = int(s)
         except ValueError:
@@ -78,9 +83,9 @@ def input_integer(prompt, minimum=None, maximum=None):
             return f'Must be below {maximum:,}: '
         return s
 
-    result = parse(input(prompt))
+    result = parse(input(prompt).strip())
     while isinstance(result, str):
-        result = parse(input(result))
+        result = parse(input(result).strip())
     return result
 
 

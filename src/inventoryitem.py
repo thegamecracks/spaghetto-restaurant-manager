@@ -2,10 +2,10 @@ import copy
 import decimal
 from typing import List, Union, Iterable, Dict
 
+from . import utils
 from .inventorybase import InventoryBase
 from .inventoryitementry import InventoryItemEntry
 from .item import Item
-from .utils import plural
 
 __all__ = ['InventoryItem']
 
@@ -50,10 +50,18 @@ class InventoryItem(InventoryBase):
 
         self._items = _items
 
+    def __repr__(self):
+        return '{}({!r}, {!r}, {!r})'.format(
+            self.__class__.__name__,
+            self.name,
+            self.unit,
+            list(self._items.values())
+        )
+
     def __str__(self):
         return '{q:,} {u} of {n}'.format(
             q=self.quantity,
-            u=plural(self.unit, self.quantity),
+            u=utils.plural(self.unit, self.quantity),
             n=self.name
         )
 
@@ -144,7 +152,7 @@ class InventoryItem(InventoryBase):
     def copy(self):
         return copy.deepcopy(self)
 
-    def cost_of(self, n: int, *, lowest_first=True) \
+    def cost_of(self, n: int = None, *, lowest_first=True) \
             -> decimal.Decimal:
         """Return the cost of some number of this item.
 
@@ -152,18 +160,22 @@ class InventoryItem(InventoryBase):
         use self.price / self.quantity.
 
         Args:
-            n (int): The amount to subtract from quantity.
+            n (Optional[int]): The amount to get the cost of.
+                Defaults to the item's quantity.
             lowest_first (bool): If True, entries with the lowest price
                 are used first.
 
         Returns:
-            decimal.Decimal: The total value of the items subtracted.
+            decimal.Decimal: The total value of n items
+                (not rounded to the nearest cent).
 
         Raises:
             ValueError: n is greater than the quantity of the item.
 
         """
-        if n > self.quantity:
+        if n is None:
+            n = self.quantity
+        elif n > self.quantity:
             raise ValueError(f'Cannot get cost of {n:,} items with '
                              f'only {self.quantity:,} available')
 
@@ -180,25 +192,29 @@ class InventoryItem(InventoryBase):
 
         return value
 
-    def subtract(self, n: int, lowest_first=True) -> decimal.Decimal:
+    def subtract(self, n: int = None, lowest_first=True) -> decimal.Decimal:
         """Subtract from the item's quantity.
 
         As it subtracts from its entries, if the entry's quantity goes to
         0, it is deleted from InventoryItem.
 
         Args:
-            n (int): The amount to subtract from quantity.
+            n (Optional[int]): The amount to subtract from quantity.
+                Defaults to the item's quantity.
             lowest_first (bool): If True, entries with the lowest price
                 are subtracted from first.
 
         Returns:
-            decimal.Decimal: The total value of the items subtracted.
+            decimal.Decimal: The total value of the items subtracted
+                (not rounded to the nearest cent).
 
         Raises:
             ValueError: n is greater than the quantity of the item.
 
         """
-        if n > self.quantity:
+        if n is None:
+            n = self.quantity
+        elif n > self.quantity:
             raise ValueError(
                 f'Not enough items to subtract {n:,} from {self.quantity:,}')
 

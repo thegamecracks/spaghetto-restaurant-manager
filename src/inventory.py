@@ -40,7 +40,7 @@ class Inventory(InventoryBase):
             Item objects are automatically converted into InventoryItems.
 
     """
-    _DEFAULT = object()
+    _MISSING = object()
     _INV_TYPE = InventoryItem
     _items: Dict[str, _INV_TYPE]
 
@@ -76,8 +76,8 @@ class Inventory(InventoryBase):
     def get(self, key, default=None) -> _INV_TYPE:
         return self._items.get(getattr(key, 'name', key), default)
 
-    def pop(self, key, default=_DEFAULT) -> _INV_TYPE:
-        if default is self._DEFAULT:
+    def pop(self, key, default=_MISSING) -> _INV_TYPE:
+        if default is self._MISSING:
             return self._items.pop(getattr(key, 'name', key))
         return self._items.pop(getattr(key, 'name', key), default)
 

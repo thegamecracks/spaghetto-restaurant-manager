@@ -24,6 +24,8 @@ class Restaurant(Business):
     """
     dishes: DishMenu = field(default_factory=DishMenu)
 
+    _MISSING = object()
+
     @staticmethod
     def func_popularity(dollars: numbers.Rational) -> float:
         """Generate the popularity of the restaurant on a scale of 100 to 1000.
@@ -56,7 +58,7 @@ class Restaurant(Business):
         return max(100., popularity)
 
     def cost_of_dish(self, dish: Dish, n: int, average=False,
-                     lowest_first=True):
+                     lowest_first=True, default: object = _MISSING) -> decimal.Decimal:
         """Return the cost it takes to create some number of this dish.
 
         Args:
@@ -66,32 +68,44 @@ class Restaurant(Business):
                 the dish's items in the inventory.
             lowest_first (bool): If True and `average` is False,
                 uses the cheapest purchases in inventory first.
+            default (Optional[object]): If this argument is provided,
+                ValueErrors will not be thrown and instead returns `default`.
 
         Returns:
             decimal.Decimal
+            object: If default is provided and an error occurs,
+                this is returned.
 
         Raises:
             ValueError: Either n is greater than the quantity of one of
                 the inventory items; a requirement is missing from
-                the inventory; or one of the inventory items was empty.
+                the inventory; or one of the inventory items was empty/missing.
 
         """
         cost = decimal.Decimal()
 
-        for i in dish.items:
-            inv_item = Business.inventory[i.name]
-
-            if average:
+        try:
+            for i in dish.items:
                 try:
-                    cost += (inv_item.price / inv_item.quantity) * i.quantity
-                except (ZeroDivisionError, decimal.InvalidOperation) as e:
-                    raise ValueError(
-                        f'Inventory item was empty: {inv_item!r}') from e
-            else:
-                print("h")
-                cost += inv_item.cost_of(n, lowest_first=lowest_first)
+                    inv_item = self.inventory[i.name]
+                except KeyError as e:
+                    raise ValueError(f'Item {i!r} does not exist in inventory') from e
 
-        return n * cost
+                if average:
+                    try:
+                        cost += inv_item.price / inv_item.quantity * i.quantity
+                    except (ZeroDivisionError, decimal.InvalidOperation) as e:
+                        raise ValueError(
+                            f'Inventory item was empty: {inv_item!r}') from e
+                else:
+                    cost += inv_item.cost_of(n, lowest_first=lowest_first)
+
+            return n * cost
+        except ValueError as e:
+            if default is not self._MISSING:
+                return default
+            raise e
+
 
     def generate_metadata(self):
         super().generate_metadata()
@@ -129,7 +143,7 @@ class Restaurant(Business):
 
         items = []
         for i in dish.items:
-            inv_item = Business.inventory.get(i.name)
+            inv_item = self.inventory.get(i.name)
             n = i.quantity * quantity
             if inv_item is None or inv_item.quantity < n:
                 return
@@ -150,7 +164,7 @@ class Restaurant(Business):
 
     def update_popularity(self):
         old = self.metadata.get('popularity')
-        new = self.func_popularity(Business.balance)
+        new = self.func_popularity(self.balance)
 
         final = new
         if old is not None:
@@ -162,6 +176,10 @@ class Restaurant(Business):
 
     def update_expenses(self) -> Tuple[decimal.Decimal, decimal.Decimal]:
         """Update the expenses of all dishes using their current sales.
+
+        This method is called every month automatically, so if you need
+        the total revenue/expenses made in sales, use the dish properties:
+            >>> revenue = sum(d.revenue for d in restaurant.dishes)
 
         This will subtract the required ingredients for each dish
         from the inventory and update their `expenses_items` attribute,
@@ -179,7 +197,7 @@ class Restaurant(Business):
 
         """
         sales: Dict[Dish, int] = collections.Counter()
-        for d in Restaurant.dishes:
+        for d in self.dishes:
             d: Dish
             sales[d] = d.sales
             d.expenses_items = [i.copy(price=0) for i in d.items]
@@ -189,7 +207,7 @@ class Restaurant(Business):
             insufficient = []
 
             for k, v in sales.items():
-                cost = Restaurant.sell_dish(Restaurant(), k)
+                cost = self.sell_dish(k)
 
                 if cost is not None:
                     sales[k] -= 1
@@ -202,14 +220,17 @@ class Restaurant(Business):
 
             for dish in insufficient:
                 del sales[dish]
-        print(expenses)
-        print("expenses ^")
-        Business.deposit(Business(), 'Dish Sales', revenue, TransactionType.SALES)
+
+        self.deposit('Dish Sales', revenue, TransactionType.SALES)
 
         return revenue, expenses
 
     def update_sales(self, none_only=False) -> int:
         """Update the sales of all dishes.
+
+        This method is called every month automatically, so if you need
+        the total sales, use the `sale` attribute of the dishes:
+            >>> sales = sum(d.sales for d in restaurant.dishes)
 
         Args:
             none_only (bool): If True, only dishes with a revenue
@@ -220,14 +241,14 @@ class Restaurant(Business):
             int: The number of dishes updated.
 
         """
-        popularity = min(5., Restaurant.update_popularity(Restaurant()) / 200 + 0.5)
+        popularity = min(5., self.update_popularity() / 200 + 0.5)
         open_hours = 8
-        num_dishes = len(Restaurant.dishes)
+        num_dishes = len(self.dishes)
         randomness = random.uniform(0.81, 0.86)
 
         i = 0
         dish: Dish
-        for dish in Restaurant.dishes:
+        for dish in self.dishes:
             if none_only and dish.sales is not None:
                 continue
             dollars = float(dish.price)
@@ -240,19 +261,18 @@ class Restaurant(Business):
             hour_factor = (open_hours + 171) / 180
             # Factor in the cost of the materials needed to create the item
             # with a logistic function
-            try:
-                cost_price_ratio = float(
-                    Restaurant.cost_of_dish(Restaurant(), dish, 1, average=True) / dish.price)
-            except ValueError:
-                cost_price_ratio = 0.
+            cost_price_ratio = float(
+                self.cost_of_dish(dish, 1, average=True, default=0)
+                / dish.price
+            )
             cost_factor = 0.2 / (1 + math.e ** (-20 * cost_price_ratio)) - 0.1
             # Decaying exponential function
-            dish.sales = int(
+            dish.sales = max(0, int(
                 ((1 + cost_factor - 1 / 2000 * dollars) ** (
                     -dollars + hour_factor * pop_factor * randomness
                     + 4 * cost_price_ratio
                 ) - dollars) / num_dishes
-            )
+            ))
             i += 1
 
         return i
