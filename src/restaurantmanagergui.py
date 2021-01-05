@@ -38,7 +38,7 @@ class GUI:
                     return
 
                 if employees > 0:
-                    business.employees = employees
+                    business.employee_count = employees
                     return True
 
         business = self.manager.business
