@@ -28,6 +28,6 @@ You can download a windows executable of this program [here][exe.windows].
 ---
 
 ## License
-[GNU LPGLv3.0](https://choosealicense.com/licenses/lgpl-3.0/)
+[GNU GPLv3.0](https://choosealicense.com/licenses/gpl-3.0/)
 
 [exe.windows]: https://github.com/thegamecracks/hackathon2020-restaurant-manager/releases/download/v0.2/Spaghetto.Restaurant.Manager.exe
