@@ -9,13 +9,15 @@ Anything that is callable should be called by the runner.
 Window functions are expected to clean up their own windows.
 """
 import decimal
-from typing import List, Tuple, Union, Optional
+import itertools
+from typing import List, Tuple, Optional
 
 import PySimpleGUI as sg
 
-from . import utils, Dish, Item, InventoryItem
+from . import utils, Dish, Item, InventoryItem, Transaction
 from .manager import Manager
 from .restaurantmanager import RestaurantManager
+from .restaurantmanagerguiutils import input_integer, input_money
 
 TITLE = 'Spaghetto Manager 🍝'
 
@@ -106,6 +108,11 @@ def main(manager: RestaurantManager):
             elif event == 'dishes':
                 win.hide()
                 if stop := main_dishes(manager):
+                    return stop
+                win.un_hide()
+            elif event == 'finances':
+                win.hide()
+                if stop := main_finances(manager):
                     return stop
                 win.un_hide()
             elif event == 'inventory':
@@ -240,7 +247,7 @@ def input_dish(manager: RestaurantManager) -> Tuple[bool, Optional[Dish]]:
                 try:
                     price: decimal.Decimal = utils.parse_dollars(price)
                 except ValueError:
-                    sg.popup_ok('Could not parse your price.')
+                    sg.popup_ok('Could not understand your price.')
                     continue
                 if price < 0:
                     sg.popup_ok('Please price the dish at a positive value.')
@@ -370,8 +377,10 @@ def main_inventory(manager: Manager):
                 if stop:
                     return stop
                 elif item is not None:
-                    business.inventory.add(item)
-                    update_items()
+                    price = input_money('What is the cost of your purchase?')
+                    if price is not None:
+                        business.inventory.add(item)
+                        update_items()
             elif event == 'remove':
                 if selected_item is None:
                     sg.popup_ok('Please select an item to remove.')
@@ -401,6 +410,72 @@ def main_inventory(manager: Manager):
          sg.Multiline('Nothing selected', size=(30, 5), key='display')],
         [sg.Button('Back', key='back'), sg.Button('Add', key='add'),
          sg.Button('Remove', key='remove')]
+    ]
+
+    win = sg.Window(TITLE, layout, finalize=True, resizable=True)
+    stop = event_loop()
+    win.close()
+    return stop
+
+
+def main_finances(manager: Manager):
+    def event_loop():
+        while True:
+            event, values = win.read()
+            stop = global_event_handler(win, event, values)
+            if (stop := global_event_handler(win, event, values)) is not None:
+                return stop
+            elif (stop := menu_event_handler(win, event, values)) is not None:
+                return stop
+            elif event == 'empadd':
+                num = input_integer('How many employees are you adding?',
+                                    minimum=0)
+                if num is not None and num != 0:
+                    business.employee_count += num
+                    update_employees()
+            elif event == 'empsub':
+                num = input_integer('How many employees are you removing?',
+                                    minimum=0)
+                if num is not None and num != 0:
+                    business.employee_count -= num
+                    update_employees()
+
+    def update_employees():
+        win.find('emp').update(f'Employees: {business.employee_count:,}')
+
+    def format_transactions(transactions: List[Transaction]):
+        """Return a string of transactions.
+        Transactions occurring in the same week are grouped together."""
+        transactions.reverse()
+        lines = []
+        for week, group in itertools.groupby(transactions, lambda t: t.week):
+            lines.append(utils.format_date(week))
+            lines.extend(f'{utils.format_dollars(t.dollars)}: {t.title}'
+                         for t in transactions)
+
+        return '\n'.join(lines)
+
+    business = manager.business
+
+    employee_layout = [
+        [sg.Text(f'Employees: {business.employee_count:,}', key='emp')],
+        [sg.Button('Increase', key='empadd')],
+        [sg.Button('Decrease', key='empsub')]
+    ]
+    transactions = format_transactions(business.get_transactions(limit=30))
+    # TODO: filter transactions by income/expenses
+    transaction_layout = [
+        [sg.Multiline(transactions, size=(50, 5))],
+        [sg.Text('Monthly revenue: '
+                 + utils.format_dollars(business.get_monthly_revenue())),
+         sg.Text('Monthly expenses: '
+                 + utils.format_dollars(business.get_monthly_expenses()))]
+    ]
+    layout = [
+        create_menu(),
+        [sg.Frame('Employee Management', employee_layout),
+         sg.Frame('Transactions', transaction_layout)],
+        [sg.Button('Back', key='back')]
     ]
 
     win = sg.Window(TITLE, layout, finalize=True, resizable=True)
