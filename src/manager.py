@@ -368,12 +368,12 @@ WIP: This currently only prints the inventory of the business."""
         """Go to the next month."""
         business = self.manager.business
         business.step(weeks=4)
-        print(business.format_date(business.total_weeks))
+        print(utils.format_date(business.total_weeks))
 
     def do_time(self, arg):
         """View the current year, month, and week."""
         business = self.manager.business
-        print('The current date is:', business.format_date(business.total_weeks))
+        print('The current date is:', utils.format_date(business.total_weeks))
 
 
 class ManagerCLIFinancesEmployees(ManagerCLISubCMDBase):
@@ -677,7 +677,7 @@ class ManagerCLIFinances(ManagerCLISubCMDBase):
         dollars = []
 
         for t in transactions:
-            weeks.append(business.format_date(t.week))
+            weeks.append(utils.format_date(t.week))
             dollars.append(utils.format_dollars(t.dollars))
 
         week_longest = max(len(w) for w in weeks)
