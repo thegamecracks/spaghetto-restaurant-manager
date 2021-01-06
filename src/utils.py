@@ -1,7 +1,7 @@
 import decimal
 
 __all__ = [
-    'case_preserving_replace', 'format_cents', 'format_dollars',
+    'case_preserving_replace', 'format_cents', 'format_date', 'format_dollars',
     'format_weeks', 'fuzzy_match_word', 'human_join', 'parse_cents',
     'parse_decimal', 'parse_dollars', 'plural', 'round_dollars'
 ]
@@ -28,6 +28,15 @@ def case_preserving_replace(text, target, replacement, count=None):
 def format_cents(cents: int):
     sign = '-' if cents < 0 else ''
     return '{}${}.{:02d}'.format(sign, abs(cents) // 100, abs(cents) % 100)
+
+
+def format_date(week: int) -> str:
+    """Format a week or date as "Y1 M1 W1"."""
+    month = week // 4 % 12
+    year = week // 48
+    week %= 4
+
+    return f'Y{year + 1} M{month + 1} W{week + 1}'
 
 
 def format_dollars(dollars: decimal.Decimal):

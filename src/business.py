@@ -142,15 +142,6 @@ class Business:
 
         return True
 
-    @staticmethod
-    def format_date(week: int) -> str:
-        """Format a week or date as "Y1 M1 W1"."""
-        month = week // 4 % 12
-        year = week // 48
-        week %= 4
-
-        return f'Y{year + 1} M{month + 1} W{week + 1}'
-
     def generate_metadata(self):
         """Generate some metadata for the business based on its current info.
         This can be extended by subclasses."""
