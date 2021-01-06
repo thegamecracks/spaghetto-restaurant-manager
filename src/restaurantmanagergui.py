@@ -39,6 +39,7 @@ class GUI:
 
     def run(self):
         """Run the GUI."""
+        sg.theme('Topanga')
         stop = self.setup_business()
         if stop:
             return

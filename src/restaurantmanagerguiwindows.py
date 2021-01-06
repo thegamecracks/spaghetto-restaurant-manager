@@ -12,22 +12,34 @@ import PySimpleGUI as sg
 
 from . import utils
 from .manager import Manager
+from .restaurantmanager import RestaurantManager
 
 TITLE = 'Spaghetto Manager 🍝'
 
 
-def close_and_return(retval, *windows: sg.Window):
+def create_menu():
+    """Creates a row containing the main menu."""
+    menu_def = [
+        ['hello', ['hello', ['hello', ['i like turtles']]]]
+    ]
+    return [sg.Menu(menu_def)]
+
+
+def menu_event_handler(win, event, values) -> bool:
+    """Handles events for the main menu bar."""
+
+
+def close_and_return(stop, *windows: sg.Window):
     """A helper function for closing windows and returning."""
     for win in windows:
         win.close()
-    return retval
+    return stop
 
 
 def global_event_handler(win, event, values) -> bool:
     """An event handler to fire for all windows.
 
-    Window functions should return whatever this returns
-    if it is not None.
+    Window functions should return if this returns True.
 
     """
     if event in (sg.WIN_CLOSED, 'Cancel'):
@@ -44,8 +56,7 @@ def setup_balance(manager: Manager):
 
     while True:
         event, values = win.read()
-        stop = global_event_handler(win, event, values)
-        if stop is not None:
+        if stop := global_event_handler(win, event, values):
             return close_and_return(stop, win)
         elif event == 'Submit':
             try:
@@ -66,8 +77,7 @@ def setup_employees(manager: Manager):
 
     while True:
         event, values = win.read()
-        stop = global_event_handler(win, event, values)
-        if stop is not None:
+        if stop := global_event_handler(win, event, values):
             return close_and_return(stop, win)
         elif event == 'Submit':
             try:
@@ -80,27 +90,62 @@ def setup_employees(manager: Manager):
                 return close_and_return(False, win)
 
 
-def main(manager: Manager):
+def main(manager: RestaurantManager):
+    def event_loop():
+        while True:
+            event, values = win.read()
+            if stop := global_event_handler(win, event, values):
+                return stop
+            elif stop := menu_event_handler(win, event, values):
+                return stop
+            elif event == 'dishes':
+                win.hide()
+                if stop := main_dishes(manager):
+                    return stop
+                win.un_hide()
+            elif event == 'step':
+                business.step(weeks=4)
+                win.find_element('date').update(
+                    utils.format_date(business.total_weeks))
+
     business = manager.business
 
     menu_def = [
         ['hello', ['hello', ['hello', ['i like turtles']]]]
     ]
     layout = [
-        [sg.Menu(menu_def)],
+        create_menu(),
         [sg.Text(utils.format_date(business.total_weeks), key='date')],
         [sg.Button('Dishes', key='dishes'), sg.Button('Finances', key='finances')],
         [sg.Button('Inventory', key='inventory'), sg.Button('Next Month', key='step')]
     ]
 
-    win = sg.Window(TITLE, layout, finalize=True)
+    win = sg.Window(TITLE, layout, finalize=True, resizable=True)
+    stop = event_loop()
+    win.close()
+    return stop
 
-    while True:
-        event, values = win.read()
-        stop = global_event_handler(win, event, values)
-        if stop is not None:
-            return stop
-        elif event == 'step':
-            business.step(weeks=4)
-            win.find_element('date').update(
-                utils.format_date(business.total_weeks))
+
+def main_dishes(manager: RestaurantManager):
+    def event_loop():
+        while True:
+            event, values = win.read()
+            stop = global_event_handler(win, event, values)
+            if stop := global_event_handler(win, event, values):
+                return stop
+            elif stop := menu_event_handler(win, event, values):
+                return stop
+            elif event == 'back':
+                return False
+
+    business = manager.business
+
+    layout = [
+        create_menu(),
+        [sg.Button('Back', key='back')]
+    ]
+
+    win = sg.Window(TITLE, layout, finalize=True, resizable=True)
+    stop = event_loop()
+    win.close()
+    return stop
