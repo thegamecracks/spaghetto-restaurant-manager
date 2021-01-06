@@ -1,9 +1,8 @@
 import PySimpleGUI as sg
 
 from .inventory import Inventory
-from .managergui import rungui
 from .restaurantmanager import RestaurantManager
-from . import restaurantmanagerguilayouts as layouts
+from . import restaurantmanagerguiwindows as windows
 from . import utils
 
 __all__ = ['RestaurantManagerGUI']
@@ -21,57 +20,26 @@ class GUI:
         self.manager = manager
 
     def setup_business(self) -> bool:
-        def setup_balance_handler():
-            if event == 'Enter':
-                try:
-                    balance = utils.parse_dollars(values['input'])
-                except ValueError:
-                    return
-
-                business.balance = balance
-                return True
-
-        def setup_employees_handler():
-            if event == 'Enter':
-                try:
-                    employees = int(values['input'])
-                except ValueError:
-                    return
-
-                if employees > 0:
-                    business.employee_count = employees
-                    return True
-
         business = self.manager.business
         prompts = []
 
         if business.balance is None:
-            prompts.append((layouts.setup_balance, setup_balance_handler))
+            prompts.append(windows.setup_balance)
         if business.employee_count is None:
-            prompts.append((layouts.setup_employees, setup_employees_handler))
+            prompts.append(windows.setup_employees)
         if business.inventory is None:
             business.inventory = Inventory()
 
-        for layout, handler in prompts:
-            win = sg.Window('Business Setup', layout, finalize=True)
-            while True:
-                event, values = win.read()
-                if event in (sg.WIN_CLOSED, 'Exit'):
-                    return True
-                stop = handler()
-                if stop:
-                    win.close()
-                    break
+        for window in prompts:
+            stop = window(self.manager)
+            if stop:
+                return stop
 
         return False
 
     def run(self):
+        """Run the GUI."""
         stop = self.setup_business()
         if stop:
             return
-        rungui(self.manager)
-
-
-class WindowSetup:
-    def __init__(self):
-        pass
+        windows.main(self.manager)
