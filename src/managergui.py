@@ -362,6 +362,6 @@ def rungui(manager: RestaurantManager):
 
     if event1 == 'Step' :
       business.step(weeks=4)
-      sg.popup(business.format_date(business.total_weeks))
+      sg.popup(utils.format_date(business.total_weeks))
 
   win1.close()

@@ -81,5 +81,26 @@ def setup_employees(manager: Manager):
 
 
 def main(manager: Manager):
-    layout = sg.Submit
+    business = manager.business
 
+    menu_def = [
+        ['hello', ['hello', ['hello', ['i like turtles']]]]
+    ]
+    layout = [
+        [sg.Menu(menu_def)],
+        [sg.Text(utils.format_date(business.total_weeks), key='date')],
+        [sg.Button('Dishes', key='dishes'), sg.Button('Finances', key='finances')],
+        [sg.Button('Inventory', key='inventory'), sg.Button('Next Month', key='step')]
+    ]
+
+    win = sg.Window(TITLE, layout, finalize=True)
+
+    while True:
+        event, values = win.read()
+        stop = global_event_handler(win, event, values)
+        if stop is not None:
+            return stop
+        elif event == 'step':
+            business.step(weeks=4)
+            win.find_element('date').update(
+                utils.format_date(business.total_weeks))

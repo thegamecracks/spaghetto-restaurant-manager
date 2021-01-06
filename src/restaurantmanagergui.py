@@ -42,4 +42,7 @@ class GUI:
         stop = self.setup_business()
         if stop:
             return
-        windows.main(self.manager)
+        win = windows.main(self.manager)
+
+        while callable(win):
+            win = win(self.manager)
