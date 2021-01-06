@@ -108,6 +108,11 @@ def main(manager: RestaurantManager):
                 if stop := main_dishes(manager):
                     return stop
                 win.un_hide()
+            elif event == 'inventory':
+                win.hide()
+                if stop := main_inventory(manager):
+                    return stop
+                win.un_hide()
             elif event == 'step':
                 business.step(weeks=4)
                 win.find_element('date').update(
@@ -163,7 +168,7 @@ def main_dishes(manager: RestaurantManager):
                     continue
 
                 if sg.popup_ok_cancel('Are you sure you want to remove this dish:',
-                                      str(selected_dish)):
+                                      str(selected_dish)) == 'Yes':
                     business.dishes.remove(selected_dish)
                     update_dishes()
 
@@ -267,7 +272,7 @@ def input_dish(manager: RestaurantManager) -> Tuple[bool, Optional[Dish]]:
 
 
 def input_item(manager: Manager) -> Tuple[bool, Optional[Item]]:
-    def event_loop()-> Tuple[bool, Optional[Item]]:
+    def event_loop() -> Tuple[bool, Optional[Item]]:
         nonlocal selected_item
         while True:
             event, values = win.read()
@@ -337,4 +342,68 @@ def input_item(manager: Manager) -> Tuple[bool, Optional[Item]]:
 
 
 def create_item(manager: Manager) -> Tuple[bool, Optional[Item]]:
+    # TODO: create_item
     return False, None
+
+
+def main_inventory(manager: Manager):
+    def event_loop():
+        nonlocal selected_item
+        while True:
+            event, values = win.read()
+            stop = global_event_handler(win, event, values)
+            if (stop := global_event_handler(win, event, values)) is not None:
+                return stop
+            elif (stop := menu_event_handler(win, event, values)) is not None:
+                return stop
+            elif event == 'select':
+                item: List[InventoryItem] = values.get(event)
+                text: sg.Multiline = win.find('display')
+                if item:
+                    selected_item = item[0]
+                    text.update(manager.describe_invitem(selected_item))
+                else:
+                    selected_item = None
+                    text.update('Nothing selected')
+            elif event == 'add':
+                stop, item = create_item(manager)
+                if stop:
+                    return stop
+                elif item is not None:
+                    business.inventory.add(item)
+                    update_items()
+            elif event == 'remove':
+                if selected_item is None:
+                    sg.popup_ok('Please select an item to remove.')
+                    continue
+
+                if sg.popup_ok_cancel('Are you sure you want to remove this item:',
+                                      str(selected_item)) == 'Yes':
+                    business.inventory.remove(selected_item)
+                    update_items()
+
+    def update_items():
+        nonlocal items
+        items = tuple(d for d in business.inventory)
+        selector: sg.Listbox = win.find('select')
+        selector.update(items)
+
+    business = manager.business
+
+    items = tuple(d for d in business.inventory)
+    selected_item = None
+
+    layout = [
+        create_menu(),
+        [sg.Listbox(
+            items, enable_events=True, key='select',
+            size=(30, 5), select_mode=sg.LISTBOX_SELECT_MODE_SINGLE),
+         sg.Multiline('Nothing selected', size=(30, 5), key='display')],
+        [sg.Button('Back', key='back'), sg.Button('Add', key='add'),
+         sg.Button('Remove', key='remove')]
+    ]
+
+    win = sg.Window(TITLE, layout, finalize=True, resizable=True)
+    stop = event_loop()
+    win.close()
+    return stop

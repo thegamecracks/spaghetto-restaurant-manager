@@ -46,9 +46,28 @@ class Manager:
             str
 
         """
+        value = item.cost_of()
+
+        per = value / item.quantity
+        per_quantity = 1
+        if value > 0:
+            cent = decimal.Decimal('0.01')
+            while per < cent:
+                per_quantity *= 10
+                per *= 10
+        per_str = '{} per {}'.format(
+            utils.format_dollars(per),
+            item.unit if per_quantity == 1
+            else f'{per_quantity:,} {utils.plural(item.unit, per_quantity)}'
+        )
+
         description = (
-            f'Quantity: {item.quantity}\n'
-            f'Total value: {utils.format_dollars(item.cost_of())}'
+            'Quantity: {quantity}\n'
+            'Total value: {value} ({per})'
+        ).format(
+            quantity=item.quantity,
+            value=utils.format_dollars(value),
+            per=per_str
         )
         return description
 
