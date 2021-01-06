@@ -144,8 +144,13 @@ def parse_cents(s: str) -> int:
     return cents
 
 
-def parse_decimal(s: str) -> tuple:
+def parse_decimal(s: str, empty_allowed=False) -> tuple:
     """Parse a decimal number into its whole and decimal parts.
+
+    Args:
+        s (str)
+        empty_allowed (bool): If False, a ValueError is thrown
+            if the string after cleaning is empty.
 
     Returns:
         Tuple[int, int]
@@ -154,7 +159,9 @@ def parse_decimal(s: str) -> tuple:
         ValueError
 
     """
-    s = s.replace(',', '')
+    s = s.replace(',', '').strip()
+    if not s:
+        raise ValueError('String is empty')
     # Find the decimal point (and assert there aren't multiple points)
     point = s.find('.')
     if point == -1:
@@ -173,6 +180,7 @@ def parse_decimal(s: str) -> tuple:
 
 def parse_dollars(s: str) -> decimal.Decimal:
     """Parse a decimal number into Decimal."""
+    s = s.lstrip('$')
     whole, rational = parse_decimal(s)
     if rational >= 100:
         raise ValueError('Cannot exceed decimal precision of 2 '

@@ -8,9 +8,12 @@ Anything that is callable should be called by the runner.
 
 Window functions are expected to clean up their own windows.
 """
+import decimal
+from typing import List, Tuple, Union, Optional
+
 import PySimpleGUI as sg
 
-from . import utils
+from . import utils, Dish, Item, InventoryItem
 from .manager import Manager
 from .restaurantmanager import RestaurantManager
 
@@ -39,11 +42,13 @@ def close_and_return(stop, *windows: sg.Window):
 def global_event_handler(win, event, values) -> bool:
     """An event handler to fire for all windows.
 
-    Window functions should return if this returns True.
+    Window functions should return if this does not return None.
 
     """
-    if event in (sg.WIN_CLOSED, 'Cancel'):
+    if event == sg.WIN_CLOSED:
         return True
+    elif event.lower() in ('back', 'cancel'):
+        return False
 
 
 def setup_balance(manager: Manager):
@@ -56,8 +61,8 @@ def setup_balance(manager: Manager):
 
     while True:
         event, values = win.read()
-        if stop := global_event_handler(win, event, values):
-            return close_and_return(stop, win)
+        if (stop := global_event_handler(win, event, values)) is not None:
+            return stop
         elif event == 'Submit':
             try:
                 balance = utils.parse_dollars(values['input'])
@@ -77,8 +82,8 @@ def setup_employees(manager: Manager):
 
     while True:
         event, values = win.read()
-        if stop := global_event_handler(win, event, values):
-            return close_and_return(stop, win)
+        if (stop := global_event_handler(win, event, values)) is not None:
+            return stop
         elif event == 'Submit':
             try:
                 employees = int(values['input'])
@@ -94,9 +99,9 @@ def main(manager: RestaurantManager):
     def event_loop():
         while True:
             event, values = win.read()
-            if stop := global_event_handler(win, event, values):
+            if (stop := global_event_handler(win, event, values)) is not None:
                 return stop
-            elif stop := menu_event_handler(win, event, values):
+            elif (stop := menu_event_handler(win, event, values)) is not None:
                 return stop
             elif event == 'dishes':
                 win.hide()
@@ -128,24 +133,208 @@ def main(manager: RestaurantManager):
 
 def main_dishes(manager: RestaurantManager):
     def event_loop():
+        nonlocal dishes, selected_dish
         while True:
             event, values = win.read()
             stop = global_event_handler(win, event, values)
-            if stop := global_event_handler(win, event, values):
+            if (stop := global_event_handler(win, event, values)) is not None:
                 return stop
-            elif stop := menu_event_handler(win, event, values):
+            elif (stop := menu_event_handler(win, event, values)) is not None:
                 return stop
-            elif event == 'back':
-                return False
+            elif event == 'select':
+                dish: List[Dish] = values.get(event)
+                text: sg.Multiline = win.find('display')
+                if dish:
+                    selected_dish = dish[0]
+                    text.update(manager.describe_dish(selected_dish))
+                else:
+                    selected_dish = None
+                    text.update('Nothing selected')
+            elif event == 'add':
+                stop, dish = input_dish(manager)
+                if stop:
+                    return stop
+                elif dish is not None:
+                    business.dishes.add(dish)
+                    update_dishes()
+            elif event == 'remove':
+                if selected_dish is None:
+                    sg.popup_ok('Please select a dish to remove.')
+                    continue
+
+                if sg.popup_ok_cancel('Are you sure you want to remove this dish:',
+                                      str(selected_dish)):
+                    business.dishes.remove(selected_dish)
+                    update_dishes()
+
+    def update_dishes():
+        nonlocal dishes
+        dishes = tuple(d for d in business.dishes)
+        selector: sg.Listbox = win.find('select')
+        selector.update(dishes)
 
     business = manager.business
 
+    dishes = tuple(d for d in business.dishes)
+    selected_dish = None
+
     layout = [
         create_menu(),
-        [sg.Button('Back', key='back')]
+        [sg.Listbox(
+            dishes, enable_events=True, key='select',
+            size=(30, 5), select_mode=sg.LISTBOX_SELECT_MODE_SINGLE),
+         sg.Multiline('Nothing selected', size=(30, 5), key='display')],
+        [sg.Button('Back', key='back'), sg.Button('Add', key='add'),
+         sg.Button('Remove', key='remove')]
     ]
 
     win = sg.Window(TITLE, layout, finalize=True, resizable=True)
     stop = event_loop()
     win.close()
     return stop
+
+
+def input_dish(manager: RestaurantManager) -> Tuple[bool, Optional[Dish]]:
+    """Prompt the user for a dish."""
+    def event_loop():
+        while True:
+            event, values = win.read()
+            stop = global_event_handler(win, event, values)
+            if (stop := global_event_handler(win, event, values)) is not None:
+                return stop, None
+            elif (stop := menu_event_handler(win, event, values)) is not None:
+                return stop, None
+            elif event == 'add':
+                stop, item = input_item(manager)
+                if stop:
+                    return stop, item
+                elif item is not None:
+                    items.append(item)
+                    update_items()
+            elif event == 'remove':
+                selector: sg.Listbox = win.find('item')
+                item: list = selector.get()
+                item: Item = item[0] if item else None
+                if item is not None:
+                    del items[items.index(item)]
+                    update_items()
+            elif event == 'Submit':
+                name: str = win.find('name').get().strip()
+                if not name:
+                    sg.popup_ok('Please input the name of your dish.')
+                    continue
+                elif name in business.dishes:
+                    sg.popup_ok('A dish already exists with that name.')
+                    continue
+
+                if not items:
+                    sg.popup_ok('Your dish must have at least one ingredient.')
+                    continue
+
+                price: str = win.find('price').get()
+                try:
+                    price: decimal.Decimal = utils.parse_dollars(price)
+                except ValueError:
+                    sg.popup_ok('Could not parse your price.')
+                    continue
+                if price < 0:
+                    sg.popup_ok('Please price the dish at a positive value.')
+                    continue
+
+                return False, Dish(name, items, price)
+
+    def update_items():
+        selector: sg.Listbox = win.find('item')
+        selector.update(items)
+
+    business = manager.business
+    items = []
+
+    layout = [
+        [sg.Text('Name:'), sg.InputText(key='name')],
+        [sg.Listbox(items, size=(30, 5), key='item', tooltip='Ingredients',
+                    select_mode=sg.LISTBOX_SELECT_MODE_SINGLE)],
+        [sg.Text('Estimated Cost to Produce: N/A')],
+        [sg.Text('Price: $'), sg.InputText(key='price')],
+        [sg.Submit(), sg.Cancel(), sg.Button('Add Ingredient', key='add'),
+         sg.Button('Remove Ingredient', key='remove')]
+    ]
+
+    win = sg.Window('Input dish', layout, finalize=True, resizable=True)
+    stop, dish = event_loop()
+    win.close()
+    return stop, dish
+
+
+def input_item(manager: Manager) -> Tuple[bool, Optional[Item]]:
+    def event_loop()-> Tuple[bool, Optional[Item]]:
+        nonlocal selected_item
+        while True:
+            event, values = win.read()
+            stop = global_event_handler(win, event, values)
+            if (stop := global_event_handler(win, event, values)) is not None:
+                return stop, None
+            elif (stop := menu_event_handler(win, event, values)) is not None:
+                return stop, None
+            elif event == 'new':
+                stop, selected_item = create_item(manager)
+                if stop:
+                    return stop, selected_item
+                elif selected_item is not None:
+                    return False, selected_item
+            elif event == 'select':
+                selector: sg.Listbox = win.find('select')
+                quantity_text: sg.Text = win.find('quantity_text')
+                selected_item = selector.get()
+                if selected_item:
+                    selected_item = business.inventory[
+                        selected_item[0]]
+                    quantity_text.update(
+                        f'{utils.plural(selected_item.unit).title()}:')
+                else:
+                    selected_item = None
+                    quantity_text.update('Quantity:')
+            elif event == 'Submit':
+                if selected_item is None:
+                    sg.popup_ok('Please select an item from the inventory.')
+                    continue
+
+                quantity_input: sg.InputText = win.find('quantity_input')
+                try:
+                    quantity = int(quantity_input.get())
+                except ValueError:
+                    sg.popup_ok('Quantity must be a positive integer.')
+                    continue
+                if quantity <= 0:
+                    sg.popup_ok('Quantity must be at least 1.')
+                    continue
+
+                return False, Item(selected_item.name, quantity, selected_item.unit)
+
+    business = manager.business
+
+    items = tuple(i.name for i in business.inventory)
+    selected_item = None
+
+    inv_layout = [
+        [sg.Listbox(items, size=(30, 5), enable_events=True, key='select',
+                    select_mode=sg.LISTBOX_SELECT_MODE_SINGLE)],
+        [sg.Text('Quantity:', auto_size_text=True, key='quantity_text'),
+         sg.InputText(size=(8, 1), key='quantity_input')]
+    ]
+    button_layout = [
+        [sg.Button('Create New...', key='new')],
+        [sg.Submit(), sg.Cancel()]
+    ]
+    layout = [
+        [sg.Frame('Inventory', inv_layout), sg.Frame('', button_layout)]
+    ]
+
+    win = sg.Window('Input Item', layout, finalize=True, resizable=True)
+    stop, item = event_loop()
+    win.close()
+    return stop, item
+
+
+def create_item(manager: Manager) -> Tuple[bool, Optional[Item]]:
+    return False, None
