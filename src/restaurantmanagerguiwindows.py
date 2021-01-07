@@ -409,7 +409,7 @@ def create_item(manager: Manager, quantity_minimum=0, no_cost=False,
                     price = price_input.get()
 
                     try:
-                        price = utils.parse_dollars(price)
+                        price = utils.parse_dollars(price, round_to_cent=False)
                     except ValueError:
                         sg.popup_ok('Could not understand the cost given.')
                         continue
@@ -483,7 +483,7 @@ def buy_existing_item(manager: Manager, invitem: InventoryItem, quantity_minimum
                 price_input: sg.InputText = win.find('price')
                 price = price_input.get()
                 try:
-                    price = utils.parse_dollars(price)
+                    price = utils.parse_dollars(price, round_to_cent=False)
                 except ValueError:
                     sg.popup_ok('Could not understand the cost given.')
                     continue
