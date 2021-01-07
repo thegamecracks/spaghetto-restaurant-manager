@@ -11,8 +11,7 @@ class Item:
     """A general purpose item, consisting of a name, quantity, unit,
     and total price.
 
-    This data type uses the hash of its name, allowing it to work in sets
-    and remain unique based on name.
+    This object's hash is derived from the class and name.
 
     Items with the same name and unit can be added or subtracted from each
     other as such:

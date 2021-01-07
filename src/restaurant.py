@@ -158,6 +158,7 @@ class Restaurant(Business):
                 total += value
                 # Include in dish expenses
                 item = get_expense_item(dish, inv_item)
+                item.quantity += n
                 item.price += value
 
         return total
@@ -200,7 +201,7 @@ class Restaurant(Business):
         for d in self.dishes:
             d: Dish
             sales[d] = d.sales
-            d.expenses_items = [i.copy(price=0) for i in d.items]
+            d.expenses_items = [i.copy(quantity=0, price=0) for i in d.items]
 
         expenses = revenue = decimal.Decimal()
         while any(s > 0 for s in sales.values()):

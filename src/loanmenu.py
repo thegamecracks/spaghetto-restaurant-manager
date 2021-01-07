@@ -3,8 +3,6 @@ import random
 from typing import Dict, Iterable
 
 from .loaninteresttype import LoanInterestType
-from .loanpaybacktype import LoanPaybackType
-from .loanrequirement import LoanRequirement
 from .loanrequirementtype import LoanRequirementType
 from .inventory import Inventory
 from .loan import Loan
