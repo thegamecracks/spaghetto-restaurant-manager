@@ -1,5 +1,5 @@
 """This stores all info about the economics and inventory of the business
-and provides methods for serializing to JSON and back."""
+and provides an interface for saving and loading from disk."""
 import base64
 import zlib
 from dataclasses import asdict, dataclass, field
@@ -235,7 +235,7 @@ class Business:
     def on_next_year(self):
         """Called by step() when a new year occurs."""
         for loan in self.loans:
-            if loan.payback_type == LoanPaybackType.YEARLY:
+            if loan.payback_type == LoanPaybackType.ANNUALLY:
                 self.pay_loan(loan, in_inventory=True)
 
     def pay_loan(self, loan: Loan, *, in_inventory=False) -> bool:

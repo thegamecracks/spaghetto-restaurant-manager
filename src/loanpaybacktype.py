@@ -12,7 +12,7 @@ class LoanPaybackType(enum.IntEnum):
     WEEKLY = 1
     BIWEEKLY = 2
     MONTHLY = 4
-    YEARLY = 48
+    ANNUALLY = 48
 
     def __str__(self):
         return self.name.lower()

@@ -17,6 +17,9 @@ class Loan:
     Subsidies are specified by setting the `term` attribute to 0 and
     can be checked using the is_subsidy property (makes intentions clearer).
 
+    The term and payback_type can be set to None, in which case the user
+    interface should allow those attributes to be manually provided.
+
     """
     name: str
     term: Optional[int] = None  # years

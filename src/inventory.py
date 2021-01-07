@@ -27,9 +27,9 @@ class Inventory(InventoryBase):
 
     And supports some methods similar to sets and dictionaries:
         >>> inv.add(Item('Chocolate Milk', 1, 'cup', 200))  # Add a new item
-        >>> inv.add(Item('Coffee', 1, 'cup', 200))  # Add to an existing item
+        >>> inv.add(Item('Coffee', 1, 'cup', 200))  # No-op
         >>> inv['Coffee']
-        Item('Coffee', 4, 'cup', 950)
+        Item('Coffee', 3, 'cup', Decimal('7.50'))
         >>> inv.remove('Green Tea')  # Remove an existing item
         >>> len(inv)
         2
@@ -68,7 +68,7 @@ class Inventory(InventoryBase):
         self._items.pop(getattr(key, 'name', key), None)
 
     def find(self, key, default=None) -> _INV_TYPE:
-        """Find an item that fuzzy matches the given name. Similar to get()."""
+        """Get an item that fuzzy matches the given name."""
         names = list(self._items)
         search = utils.fuzzy_match_word(getattr(key, 'name', key), names)
         return self.get(search, default) if search is not None else default

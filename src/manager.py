@@ -553,13 +553,21 @@ Usage: apply [name_or_index]"""
                 # Can't calculate # of payments, user has to input the term
                 print('Payment frequency:', loan.payback_type)
 
-        qualified = loan.check(business)
+        qualified = True
         if loan.requirements:
+            req_str = []
+            for req in loan.requirements:
+                req_check = req.check(business)
+                if not req_check:
+                    qualified = False
+
+                sign = '+' if req_check else '-'
+                req_str.append(f'{sign} {req}')
+
             meets = 'meets' if qualified else 'does not meet'
             print(f'Your business {meets} the requirements for this {name}:')
-            for req in loan.requirements:
-                sign = '+' if req.check(business) else '-'
-                print(sign, req)
+            for req in req_str:
+                print(req)
 
         if not qualified:
             return
@@ -588,7 +596,7 @@ Usage: apply [name_or_index]"""
             loan.reset_remaining_weeks()
 
         if negotiate_payback:
-            payback_types = (LoanPaybackType.MONTHLY, LoanPaybackType.YEARLY)
+            payback_types = (LoanPaybackType.MONTHLY, LoanPaybackType.ANNUALLY)
             loan.payback_type = input_choice(
                 'How frequently do you want to pay this loan? ',
                 payback_types,
