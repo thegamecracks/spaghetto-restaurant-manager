@@ -178,15 +178,29 @@ def parse_decimal(s: str, empty_allowed=False) -> tuple:
     return int(whole), int(decimal)
 
 
-def parse_dollars(s: str) -> decimal.Decimal:
-    """Parse a decimal number into Decimal."""
+def parse_dollars(s: str, round_to_cent=True) -> decimal.Decimal:
+    """Parse a decimal number into Decimal.
+
+    This strips leading dollar signs before converting.
+
+    Args:
+        s (str)
+        round_to_cent (bool): If True, the returned decimal will be
+            rounded to the nearest cent.
+
+    Returns:
+        decimal.Decimal
+
+    Raises:
+        ValueError
+
+    """
     s = s.lstrip('$')
-    whole, rational = parse_decimal(s)
-    if rational >= 100:
-        raise ValueError('Cannot exceed decimal precision of 2 '
-                         '(over 99 cents)')
-    # Pad with trailing zeros
-    return decimal.Decimal(f'{whole}.{rational:<02d}')
+    try:
+        d = decimal.Decimal(s)
+    except decimal.InvalidOperation as e:
+        raise ValueError('Syntax error in dollar input') from e
+    return round_dollars(d) if round_to_cent else d
 
 
 def plural(s: str, n: int = 2, plural_version=None):
