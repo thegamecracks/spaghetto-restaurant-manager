@@ -1,14 +1,24 @@
-import PySimpleGUI as sg
-
 from .inventory import Inventory
 from .restaurantmanager import RestaurantManager
-from . import restaurantmanagerguiwindows as windows
-from . import utils
 
-__all__ = ['RestaurantManagerGUI']
+GUI_AVAILABLE = True
+try:
+    import PySimpleGUI as sg
+    from . import restaurantmanagerguiwindows as windows
+except ModuleNotFoundError:
+    GUI_AVAILABLE = False
+    sg = windows = None
+
+__all__ = ['GUI_AVAILABLE', 'RestaurantManagerGUI']
 
 
 class RestaurantManagerGUI(RestaurantManager):
+    def __init__(self, *args, **kwargs):
+        if not GUI_AVAILABLE:
+            raise ModuleNotFoundError(f'PySimpleGUI must be installed to use '
+                                      f'{self.__class__.__name__}')
+        super().__init__(*args, **kwargs)
+
     def run(self):
         sg.theme('BluePurple')
         app = GUI(self)

@@ -2,8 +2,7 @@
 import json
 from pathlib import Path
 
-from src import Restaurant
-from src.restaurantmanagergui import RestaurantManagerGUI
+from src import Restaurant, RestaurantManagerGUI
 
 SAVE_BUSINESS = 'business.sav'
 COMPRESSED = True

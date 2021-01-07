@@ -14,10 +14,14 @@ from typing import List, Tuple, Optional
 
 import PySimpleGUI as sg
 
-from . import utils, Dish, Item, InventoryItem, Transaction
+from . import utils
+from .dish import Dish
 from .manager import Manager
+from .inventory import InventoryItem
+from .item import Item
 from .restaurantmanager import RestaurantManager
 from .restaurantmanagerguiutils import input_integer, input_money
+from .transaction import Transaction
 
 TITLE = 'Spaghetto Manager 🍝'
 
@@ -240,7 +244,7 @@ def input_dish(manager: RestaurantManager) -> Tuple[bool, Optional[Dish]]:
                     continue
 
                 if not items:
-                    sg.popup_ok('Your dish must have at least one ingredient.')
+                    sg.popup_ok('Your dish must have at least one no_cost.')
                     continue
 
                 price: str = win.find('price').get()
@@ -289,7 +293,7 @@ def input_item(manager: Manager) -> Tuple[bool, Optional[Item]]:
             elif (stop := menu_event_handler(win, event, values)) is not None:
                 return stop, None
             elif event == 'new':
-                stop, selected_item = create_item(manager)
+                stop, selected_item = create_item(manager, no_cost=True)
                 if stop:
                     return stop, selected_item
                 elif selected_item is not None:
@@ -348,9 +352,164 @@ def input_item(manager: Manager) -> Tuple[bool, Optional[Item]]:
     return stop, item
 
 
-def create_item(manager: Manager) -> Tuple[bool, Optional[Item]]:
-    # TODO: create_item
-    return False, None
+def create_item(manager: Manager, quantity_minimum=0, no_cost=False,
+                add_to_inventory=True) \
+        -> Tuple[bool, Optional[Item]]:
+    """Prompt the user to create an item.
+
+    :param Manager manager:
+    :param quantity_minimum: The optional minimum quantity allowed (inclusive).
+    :type quantity_minimum: int or None
+    :param bool no_cost: If True, the item's price will not be queried.
+    :param bool add_to_inventory: Adds the item to the business's inventory.
+    :return: The stop and the Item if they successfully submitted.
+    :rtype: tuple[bool, Item or None]
+
+    """
+    def event_loop() -> Tuple[bool, Optional[Item]]:
+        while True:
+            event, values = win.read()
+            stop = global_event_handler(win, event, values)
+            if (stop := global_event_handler(win, event, values)) is not None:
+                return stop, None
+            elif (stop := menu_event_handler(win, event, values)) is not None:
+                return stop, None
+            elif event == 'Submit':
+                name_input: sg.InputText = win.find('name')
+                name = name_input.get().strip()
+                if not name:
+                    sg.popup_ok('Please input the name of your new item.')
+                    continue
+                elif name.lower() in existing_names:
+                    sg.popup_ok(f'"{name}" already exists in the inventory.')
+                    continue
+
+                quantity_input: sg.InputText = win.find('quantity')
+                quantity = quantity_input.get()
+                try:
+                    quantity = int(quantity)
+                    if quantity_minimum is not None and quantity < quantity_minimum:
+                        raise ValueError('quantity is below minimum')
+                except ValueError:
+                    sg.popup_ok(f'Quantity must be an integer greater than '
+                                f'{quantity_minimum:,}.')
+                    continue
+
+                unit_input: sg.InputText = win.find('unit')
+                unit = unit_input.get().strip()
+
+                if not unit:
+                    sg.popup_ok('Please input the unit the item is measured in.')
+                    continue
+
+                if no_cost:
+                    price = decimal.Decimal()
+                else:
+                    price_input: sg.InputText = win.find('price')
+                    price = price_input.get()
+
+                    try:
+                        price = utils.parse_dollars(price)
+                    except ValueError:
+                        sg.popup_ok('Could not understand the cost given.')
+                        continue
+
+                    if values['priceunit']:
+                        # Price is per unit; multiply to get total
+                        price *= quantity
+
+                item = Item(name, quantity, unit, price)
+                if add_to_inventory:
+                    business.inventory.add(item)
+
+                return False, item
+
+    business = manager.business
+    existing_names = frozenset(i.name.lower() for i in business.inventory)
+
+    layout = [
+        [sg.Text('Item name:'), sg.InputText(key='name')],
+        [sg.Text('Quantity:'), sg.InputText(key='quantity')],
+        [sg.Text('Unit of quantity (gram, millilitre, cup...):'),
+         sg.InputText(key='unit')]
+    ]
+    if not no_cost:
+        layout.extend([
+            [sg.Text('Cost: $'), sg.InputText(key='price')],
+            [sg.Text('Cost type:'), sg.Radio('Total', 'pricetype', default=True, key='pricetotal'),
+             sg.Radio('Per Unit', 'pricetype', key='priceunit')]
+        ])
+    layout.append([sg.Submit(), sg.Cancel()])
+
+    win = sg.Window('Create Item', layout, finalize=True, resizable=True)
+    stop, item = event_loop()
+    win.close()
+    return stop, item
+
+
+def buy_existing_item(manager: Manager, invitem: InventoryItem, quantity_minimum=0) \
+        -> Tuple[bool, Optional[Item]]:
+    """
+
+    :param manager:
+    :param invitem:
+    :param quantity_minimum: The optional minimum quantity allowed (inclusive).
+    :type quantity_minimum: int or None
+    :return: The stop and optional item that was added to invitem.
+        You do not need to interact with the item.
+    :rtype: tuple[bool, Item or None]
+
+    """
+    def event_loop() -> Tuple[bool, Optional[Item]]:
+        while True:
+            event, values = win.read()
+            stop = global_event_handler(win, event, values)
+            if (stop := global_event_handler(win, event, values)) is not None:
+                return stop, None
+            elif (stop := menu_event_handler(win, event, values)) is not None:
+                return stop, None
+            elif event == 'Submit':
+                quantity_input: sg.InputText = win.find('quantity')
+                quantity = quantity_input.get()
+                try:
+                    quantity = int(quantity)
+                    if quantity_minimum is not None and quantity < quantity_minimum:
+                        raise ValueError('quantity is below minimum')
+                except ValueError:
+                    sg.popup_ok(f'Quantity must be an integer greater than '
+                                f'{quantity_minimum:,}.')
+                    continue
+
+                price_input: sg.InputText = win.find('price')
+                price = price_input.get()
+                try:
+                    price = utils.parse_dollars(price)
+                except ValueError:
+                    sg.popup_ok('Could not understand the cost given.')
+                    continue
+
+                if values['priceunit']:
+                    # Price is per unit; multiply to get total
+                    price *= quantity
+
+                item = Item(invitem.name, quantity, invitem.unit, price)
+                invitem.add(item)
+
+                return False, item
+
+    business = manager.business
+    layout = [
+        [sg.Text(f'{utils.plural(invitem.unit).capitalize()}:'), sg.InputText(key='quantity')],
+        [sg.Text('Cost: $'), sg.InputText(key='price')],
+        [sg.Text('Cost type:'), sg.Radio('Total', 'pricetype', default=True, key='pricetotal'),
+         sg.Radio('Per Unit', 'pricetype', key='priceunit')],
+        [sg.Submit(), sg.Cancel()]
+    ]
+
+    win = sg.Window('Buy Item', layout, finalize=True, resizable=True)
+    stop, item = event_loop()
+    win.close()
+    return stop, item
 
 
 def main_inventory(manager: Manager):
@@ -372,22 +531,32 @@ def main_inventory(manager: Manager):
                 else:
                     selected_item = None
                     text.update('Nothing selected')
-            elif event == 'add':
+            elif event == 'buy':
+                # buy an existing item
+                if selected_item is None:
+                    sg.popup_ok('Please select an item to buy more of.')
+                    continue
+
+                stop, item = buy_existing_item(manager, selected_item)
+                if stop:
+                    return stop
+                elif item is not None:
+                    update_items()
+            elif event == 'buynew':
                 stop, item = create_item(manager)
                 if stop:
                     return stop
                 elif item is not None:
-                    price = input_money('What is the cost of your purchase?')
-                    if price is not None:
-                        business.inventory.add(item)
-                        update_items()
+                    business.inventory.add(item)
+                    update_items()
             elif event == 'remove':
                 if selected_item is None:
                     sg.popup_ok('Please select an item to remove.')
                     continue
 
-                if sg.popup_ok_cancel('Are you sure you want to remove this item:',
-                                      str(selected_item)) == 'Yes':
+                if sg.popup_ok_cancel(
+                        'Are you sure you want to remove all of this item:',
+                        str(selected_item)) == 'Yes':
                     business.inventory.remove(selected_item)
                     update_items()
 
@@ -400,7 +569,7 @@ def main_inventory(manager: Manager):
     business = manager.business
 
     items = tuple(d for d in business.inventory)
-    selected_item = None
+    selected_item: Optional[InventoryItem] = None
 
     layout = [
         create_menu(),
@@ -408,8 +577,8 @@ def main_inventory(manager: Manager):
             items, enable_events=True, key='select',
             size=(30, 5), select_mode=sg.LISTBOX_SELECT_MODE_SINGLE),
          sg.Multiline('Nothing selected', size=(30, 5), key='display')],
-        [sg.Button('Back', key='back'), sg.Button('Add', key='add'),
-         sg.Button('Remove', key='remove')]
+        [sg.Button('Back', key='back'), sg.Button('Buy More...', key='buy'),
+         sg.Button('Buy New...', key='buynew'), sg.Button('Remove', key='remove')]
     ]
 
     win = sg.Window(TITLE, layout, finalize=True, resizable=True)

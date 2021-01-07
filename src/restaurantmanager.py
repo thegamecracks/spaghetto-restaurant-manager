@@ -208,11 +208,11 @@ class RestaurantManagerCLIDishes(RestaurantManagerCLIBase, ManagerCLISubCMDBase)
 
         def input_item():
             """Get an item from the user."""
-            existing_names = frozenset(it.name for it in requirements)
+            existing_names = frozenset(it.name.lower() for it in requirements)
             # Get item name
             end = 'cancel' if i == 1 else 'finish'
             item_name = input(f'Item #{i} (type nothing to {end}): ').strip()
-            while item_name in existing_names:
+            while item_name.lower() in existing_names:
                 input('You have already entered that item: ').strip()
             if not item_name:
                 return None
