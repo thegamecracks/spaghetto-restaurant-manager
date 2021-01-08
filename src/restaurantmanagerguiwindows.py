@@ -22,6 +22,7 @@ from .item import Item
 from .restaurantmanager import RestaurantManager
 from .restaurantmanagerguiutils import input_integer, input_money
 from .transaction import Transaction
+from .transactiontype import TransactionType
 
 TITLE = 'Spaghetto Manager 🍝'
 
@@ -641,6 +642,8 @@ def main_finances(manager: Manager):
                 if num is not None and num != 0:
                     business.employee_count -= num
                     update_employees()
+            elif event.startswith('tranview'):
+                update_transactions(event)
 
     def update_employees():
         win.find('emp').update(f'Employees: {business.employee_count:,}')
@@ -657,6 +660,21 @@ def main_finances(manager: Manager):
 
         return '\n'.join(lines)
 
+    def update_transactions(event):
+        nonlocal transactions
+        type_ = None
+        key = None
+        if event == 'tranviewrev':
+            type_ = TransactionType.SALES
+        elif event == 'tranviewexp':
+            key = lambda t: t.dollars < 0
+
+        transactions = format_transactions(business.get_transactions(
+            limit=30, type_=type_, key=key
+        ))
+        display: sg.Multiline = win.find('tran')
+        display.update(transactions)
+
     business = manager.business
 
     employee_layout = [
@@ -665,13 +683,15 @@ def main_finances(manager: Manager):
         [sg.Button('Decrease', key='empsub')]
     ]
     transactions = format_transactions(business.get_transactions(limit=30))
-    # TODO: filter transactions by income/expenses
     transaction_layout = [
-        [sg.Multiline(transactions, size=(50, 5))],
+        [sg.Multiline(transactions, size=(50, 5), key='tran')],
         [sg.Text('Monthly revenue: '
                  + utils.format_dollars(business.get_monthly_revenue())),
          sg.Text('Monthly expenses: '
-                 + utils.format_dollars(business.get_monthly_expenses()))]
+                 + utils.format_dollars(business.get_monthly_expenses()))],
+        [sg.Radio('All', 'tranview', key='tranviewall', default=True, enable_events=True),
+         sg.Radio('Revenue', 'tranview', key='tranviewrev', enable_events=True),
+         sg.Radio('Expenses', 'tranview', key='tranviewexp', enable_events=True)]
     ]
     layout = [
         create_menu(),
