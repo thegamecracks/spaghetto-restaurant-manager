@@ -8,9 +8,13 @@ Anything that is callable should be called by the runner.
 
 Window functions are expected to clean up their own windows.
 """
+import binascii
 import decimal
 import itertools
+import json
+import pathlib
 from typing import List, Tuple, Optional
+import zlib
 
 import PySimpleGUI as sg
 
@@ -28,15 +32,17 @@ TITLE = 'Spaghetto Manager 🍝'
 
 
 def create_menu():
-    """Creates a row containing the main menu."""
+    """Creates a row containing the main menu.
+
+    Since the manager's settings are not saved, the options provided
+    for File are limited.
+
+    """
     menu_def = [
-        ['hello', ['hello', ['hello', ['i like turtles']]]]
+        # ['File', ['Open...', 'Save', 'Save As...']]
+        ['File', ['Reload', 'Save']]
     ]
     return [sg.Menu(menu_def)]
-
-
-def menu_event_handler(win, event, values) -> bool:
-    """Handles events for the main menu bar."""
 
 
 def close_and_return(stop, *windows: sg.Window):
@@ -46,7 +52,50 @@ def close_and_return(stop, *windows: sg.Window):
     return stop
 
 
-def global_event_handler(win, event, values) -> bool:
+def menu_event_handler(manager: Manager, win, event, values) \
+        -> Tuple[Optional[bool], bool]:
+    """Handles events for the main menu bar.
+
+    :return: The stop condition and a reload condition.
+        If the reload condition is true, the window should refresh its info.
+    :rtype: tuple[bool, bool]
+
+    """
+    # if event == 'Open...':
+    #     path = sg.popup_get_file(
+    #         'Select the save file to open',
+    #         default_path=pathlib.Path(manager.filepath).resolve(),
+    #         default_extension='.sav',
+    #         file_types=(('Save files', '.sav'),)
+    #     )
+    #     if path is not None:
+    #         try:
+    #             manager.reload_business(path)
+    #         except (binascii.Error, UnicodeDecodeError,
+    #                 json.JSONDecodeError, zlib.error) as e:
+    #             sg.popup_error('Could not read the given save file.')
+    #         else:
+    #             manager.filepath = path
+    if event == 'Reload':
+        try:
+            manager.reload_business()
+        except (binascii.Error, UnicodeDecodeError,
+                json.JSONDecodeError, zlib.error) as e:
+            sg.popup_error('Could not read the save file.')
+        else:
+            sg.popup_ok('Successfully reloaded!')
+            return None, True
+    elif event == 'Save':
+        try:
+            manager.save_business()
+        except PermissionError:
+            sg.popup_error('Missing permissions to save!')
+        else:
+            sg.popup_ok('Successfully saved!')
+    return None, False
+
+
+def global_event_handler(manager: Manager, win, event, values) -> bool:
     """An event handler to fire for all windows.
 
     Window functions should return if this does not return None.
@@ -68,7 +117,7 @@ def setup_balance(manager: Manager):
 
     while True:
         event, values = win.read()
-        if (stop := global_event_handler(win, event, values)) is not None:
+        if (stop := global_event_handler(manager, win, event, values)) is not None:
             return stop
         elif event == 'Submit':
             try:
@@ -89,7 +138,7 @@ def setup_employees(manager: Manager):
 
     while True:
         event, values = win.read()
-        if (stop := global_event_handler(win, event, values)) is not None:
+        if (stop := global_event_handler(manager, win, event, values)) is not None:
             return stop
         elif event == 'Submit':
             try:
@@ -106,11 +155,14 @@ def main(manager: RestaurantManager):
     def event_loop():
         while True:
             event, values = win.read()
-            if (stop := global_event_handler(win, event, values)) is not None:
+            if (stop := global_event_handler(manager, win, event, values)) is not None:
                 return stop
-            elif (stop := menu_event_handler(win, event, values)) is not None:
+            stop, reload = menu_event_handler(manager, win, event, values)
+            if stop is not None:
                 return stop
-            elif event == 'dishes':
+            elif reload:
+                update_date()
+            if event == 'dishes':
                 win.hide()
                 if stop := main_dishes(manager):
                     return stop
@@ -127,8 +179,10 @@ def main(manager: RestaurantManager):
                 win.un_hide()
             elif event == 'step':
                 business.step(weeks=4)
-                win.find_element('date').update(
-                    utils.format_date(business.total_weeks))
+                update_date()
+
+    def update_date():
+        win.find_element('date').update(utils.format_date(business.total_weeks))
 
     business = manager.business
 
@@ -153,11 +207,13 @@ def main_dishes(manager: RestaurantManager):
         nonlocal dishes, selected_dish
         while True:
             event, values = win.read()
-            stop = global_event_handler(win, event, values)
-            if (stop := global_event_handler(win, event, values)) is not None:
+            if (stop := global_event_handler(manager, win, event, values)) is not None:
                 return stop
-            elif (stop := menu_event_handler(win, event, values)) is not None:
+            stop, reload = menu_event_handler(manager, win, event, values)
+            if stop is not None:
                 return stop
+            elif reload:
+                update_dishes()
             elif event == 'select':
                 dish: List[Dish] = values.get(event)
                 text: sg.Multiline = win.find('display')
@@ -218,11 +274,13 @@ def input_dish(manager: RestaurantManager) -> Tuple[bool, Optional[Dish]]:
     def event_loop():
         while True:
             event, values = win.read()
-            stop = global_event_handler(win, event, values)
-            if (stop := global_event_handler(win, event, values)) is not None:
+            if (stop := global_event_handler(manager, win, event, values)) is not None:
                 return stop, None
-            elif (stop := menu_event_handler(win, event, values)) is not None:
+            stop, reload = menu_event_handler(manager, win, event, values)
+            if stop is not None:
                 return stop, None
+            elif reload:
+                update_cost()
             elif event == 'add':
                 stop, item = input_item(manager)
                 if stop:
@@ -302,11 +360,13 @@ def input_item(manager: Manager) -> Tuple[bool, Optional[Item]]:
         nonlocal selected_item
         while True:
             event, values = win.read()
-            stop = global_event_handler(win, event, values)
-            if (stop := global_event_handler(win, event, values)) is not None:
+            if (stop := global_event_handler(manager, win, event, values)) is not None:
                 return stop, None
-            elif (stop := menu_event_handler(win, event, values)) is not None:
+            stop, reload = menu_event_handler(manager, win, event, values)
+            if stop is not None:
                 return stop, None
+            elif reload:
+                update_items()
             elif event == 'new':
                 stop, selected_item = create_item(manager, no_cost=True)
                 if stop:
@@ -341,6 +401,12 @@ def input_item(manager: Manager) -> Tuple[bool, Optional[Item]]:
                     continue
 
                 return False, Item(selected_item.name, quantity, selected_item.unit)
+
+    def update_items():
+        nonlocal items
+        items = tuple(i.name for i in business.inventory)
+        display: sg.Listbox = win.find('select')
+        display.update(items)
 
     business = manager.business
 
@@ -384,11 +450,13 @@ def create_item(manager: Manager, quantity_minimum=0, no_cost=False,
     def event_loop() -> Tuple[bool, Optional[Item]]:
         while True:
             event, values = win.read()
-            stop = global_event_handler(win, event, values)
-            if (stop := global_event_handler(win, event, values)) is not None:
+            if (stop := global_event_handler(manager, win, event, values)) is not None:
                 return stop, None
-            elif (stop := menu_event_handler(win, event, values)) is not None:
+            stop, reload = menu_event_handler(manager, win, event, values)
+            if stop is not None:
                 return stop, None
+            elif reload:
+                update_existing()
             elif event == 'Submit':
                 name_input: sg.InputText = win.find('name')
                 name = name_input.get().strip()
@@ -447,6 +515,10 @@ def create_item(manager: Manager, quantity_minimum=0, no_cost=False,
 
                 return False, item
 
+    def update_existing():
+        nonlocal existing_names
+        existing_names = frozenset(i.name.lower() for i in business.inventory)
+
     business = manager.business
     existing_names = frozenset(i.name.lower() for i in business.inventory)
 
@@ -486,10 +558,10 @@ def buy_existing_item(manager: Manager, invitem: InventoryItem, quantity_minimum
     def event_loop() -> Tuple[bool, Optional[Item]]:
         while True:
             event, values = win.read()
-            stop = global_event_handler(win, event, values)
-            if (stop := global_event_handler(win, event, values)) is not None:
+            if (stop := global_event_handler(manager, win, event, values)) is not None:
                 return stop, None
-            elif (stop := menu_event_handler(win, event, values)) is not None:
+            stop, reload = menu_event_handler(manager, win, event, values)
+            if stop is not None:
                 return stop, None
             elif event == 'Submit':
                 quantity_input: sg.InputText = win.find('quantity')
@@ -545,11 +617,13 @@ def main_inventory(manager: Manager):
         nonlocal selected_item
         while True:
             event, values = win.read()
-            stop = global_event_handler(win, event, values)
-            if (stop := global_event_handler(win, event, values)) is not None:
+            if (stop := global_event_handler(manager, win, event, values)) is not None:
                 return stop
-            elif (stop := menu_event_handler(win, event, values)) is not None:
+            stop, reload = menu_event_handler(manager, win, event, values)
+            if stop is not None:
                 return stop
+            elif reload:
+                update_items()
             elif event == 'select':
                 item: List[InventoryItem] = values.get(event)
                 text: sg.Multiline = win.find('display')
@@ -621,11 +695,14 @@ def main_finances(manager: Manager):
     def event_loop():
         while True:
             event, values = win.read()
-            stop = global_event_handler(win, event, values)
-            if (stop := global_event_handler(win, event, values)) is not None:
+            if (stop := global_event_handler(manager, win, event, values)) is not None:
                 return stop
-            elif (stop := menu_event_handler(win, event, values)) is not None:
+            stop, reload = menu_event_handler(manager, win, event, values)
+            if stop is not None:
                 return stop
+            elif reload:
+                update_employees()
+                update_transactions('')
             elif event == 'empadd':
                 num = input_integer('How many employees are you adding?',
                                     minimum=0)
@@ -661,7 +738,7 @@ def main_finances(manager: Manager):
 
         return '\n'.join(lines)
 
-    def update_transactions(event):
+    def update_transactions(event: str):
         nonlocal transactions
         type_ = None
         key = None
