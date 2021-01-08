@@ -31,6 +31,13 @@ from .transactiontype import TransactionType
 TITLE = 'Spaghetto Manager 🍝'
 
 
+def close_and_return(stop, *windows: sg.Window):
+    """A helper function for closing windows and returning."""
+    for win in windows:
+        win.close()
+    return stop
+
+
 def create_menu():
     """Creates a row containing the main menu.
 
@@ -40,16 +47,9 @@ def create_menu():
     """
     menu_def = [
         # ['File', ['Open...', 'Save', 'Save As...']]
-        ['File', ['Reload', 'Save']]
+        ['File', ['Reload', 'Save', 'Close']]
     ]
     return [sg.Menu(menu_def)]
-
-
-def close_and_return(stop, *windows: sg.Window):
-    """A helper function for closing windows and returning."""
-    for win in windows:
-        win.close()
-    return stop
 
 
 def menu_event_handler(manager: Manager, win, event, values) \
@@ -92,6 +92,8 @@ def menu_event_handler(manager: Manager, win, event, values) \
             sg.popup_error('Missing permissions to save!')
         else:
             sg.popup_ok('Successfully saved!')
+    elif event == 'Close':
+        return True, False
     return None, False
 
 
