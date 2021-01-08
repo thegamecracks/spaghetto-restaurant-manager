@@ -603,8 +603,12 @@ def main_finances(manager: Manager):
                     business.employee_count += num
                     update_employees()
             elif event == 'empsub':
+                if business.employee_count <= 1:
+                    sg.popup_ok('There are no more employees to remove.')
+                    continue
+
                 num = input_integer('How many employees are you removing?',
-                                    minimum=0)
+                                    minimum=0, maximum=business.employee_count - 1)
                 if num is not None and num != 0:
                     business.employee_count -= num
                     update_employees()
@@ -620,7 +624,7 @@ def main_finances(manager: Manager):
         for week, group in itertools.groupby(transactions, lambda t: t.week):
             lines.append(utils.format_date(week))
             lines.extend(f'{utils.format_dollars(t.dollars)}: {t.title}'
-                         for t in transactions)
+                         for t in group)
 
         return '\n'.join(lines)
 
