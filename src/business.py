@@ -123,7 +123,8 @@ class Business:
         Args:
             title (str): The title of the transaction.
             dollars (decimal.Decimal): The amount to deposit as
-                a positive value.
+                a positive value. Negative values are converted into
+                withdrawals.
             type_ (Optional[TransactionType]): The type of transaction.
             log (bool): If True, the transaction will be logged.
 
@@ -131,9 +132,9 @@ class Business:
             bool: The deposit's success.
 
         """
-        dollars = abs(dollars)
-
-        if self.balance is None:
+        if dollars < 0:
+            self.withdraw(title, dollars, type_, log)
+        elif self.balance is None:
             self.balance = decimal.Decimal()
         self.balance += dollars
 
@@ -300,7 +301,7 @@ class Business:
         Args:
             title (str): The title of the transaction.
             dollars (decimal.Decimal): The amount to withdraw as
-                a positive value.
+                a positive value. Negative values are converted to deposits.
             type_ (Optional[TransactionType]): The type of transaction.
             force (bool): If True, the withdrawal will always succeed
                 regardless if there are insufficient funds.
@@ -312,17 +313,19 @@ class Business:
             bool: The withdrawal's success.
 
         """
-        dollars = abs(dollars)
-        if force or self.balance >= dollars:
+        if dollars < 0:
+            self.deposit(title, -dollars, type_, log)
+        elif force or self.balance >= dollars or dollars == 0:
             self.balance -= dollars
             if log:
                 self.add_transaction(title, -dollars, type_)
             return True
-        self.balance -= self.NSF_FEE
-        if log:
-            self.add_transaction(f'Declined transaction with NSF fee: {title}',
-                                 -self.NSF_FEE, type_)
-        return False
+        else:
+            self.balance -= self.NSF_FEE
+            if log:
+                self.add_transaction(f'Declined transaction with NSF fee: {title}',
+                                     -self.NSF_FEE, TransactionType.DEFAULT)
+            return False
 
     def to_dict(self):
         return asdict(self)
