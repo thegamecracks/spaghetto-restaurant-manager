@@ -379,7 +379,15 @@ class Business:
 
     @classmethod
     def from_file(cls, f):
-        """Create a business from either a file or filepath."""
+        """Create a business from either a file or filepath.
+
+        Raises:
+            binascii.Error
+            json.JSONDecodeError
+            UnicodeDecodeError
+            zlib.error
+
+        """
         def decrypt(encoded):
             encoded = zlib.decompress(encoded)
             text = base64.b64decode(encoded).decode('utf-8')

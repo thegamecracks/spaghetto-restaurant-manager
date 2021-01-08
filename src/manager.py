@@ -156,8 +156,7 @@ class Manager:
             return
 
         filepath = filepath or self.filepath
-        with open(filepath, encoding='utf-8') as f:
-            self.business = self._TYPE.from_file(f)
+        self.business = self._TYPE.from_file(filepath)
 
     def run(self):
         """Start the user interface.
