@@ -162,7 +162,9 @@ def main_dishes(manager: RestaurantManager):
                 text: sg.Multiline = win.find('display')
                 if dish:
                     selected_dish = dish[0]
-                    text.update(manager.describe_dish(selected_dish))
+                    text.update('{}\n{}'.format(
+                        selected_dish.name, manager.describe_dish(selected_dish)
+                    ))
                 else:
                     selected_dish = None
                     text.update('Nothing selected')
@@ -179,7 +181,7 @@ def main_dishes(manager: RestaurantManager):
                     continue
 
                 if sg.popup_ok_cancel('Are you sure you want to remove this dish:',
-                                      str(selected_dish)) == 'Yes':
+                                      str(selected_dish)) == 'OK':
                     business.dishes.remove(selected_dish)
                     update_dishes()
 
@@ -192,7 +194,7 @@ def main_dishes(manager: RestaurantManager):
     business = manager.business
 
     dishes = tuple(d for d in business.dishes)
-    selected_dish = None
+    selected_dish: Optional[Dish] = None
 
     layout = [
         create_menu(),
@@ -227,6 +229,7 @@ def input_dish(manager: RestaurantManager) -> Tuple[bool, Optional[Dish]]:
                 elif item is not None:
                     items.append(item)
                     update_items()
+                    update_cost()
             elif event == 'remove':
                 selector: sg.Listbox = win.find('item')
                 item: list = selector.get()
@@ -234,6 +237,7 @@ def input_dish(manager: RestaurantManager) -> Tuple[bool, Optional[Dish]]:
                 if item is not None:
                     del items[items.index(item)]
                     update_items()
+                    update_cost()
             elif event == 'Submit':
                 name: str = win.find('name').get().strip()
                 if not name:
@@ -244,7 +248,7 @@ def input_dish(manager: RestaurantManager) -> Tuple[bool, Optional[Dish]]:
                     continue
 
                 if not items:
-                    sg.popup_ok('Your dish must have at least one no_cost.')
+                    sg.popup_ok('Your dish must have at least one ingredient.')
                     continue
 
                 price: str = win.find('price').get()
@@ -259,6 +263,16 @@ def input_dish(manager: RestaurantManager) -> Tuple[bool, Optional[Dish]]:
 
                 return False, Dish(name, items, price)
 
+    def update_cost():
+        dish = Dish('Temp dish', items)
+        cost = business.cost_of_dish(dish, 1, average=True, default=None)
+        display: sg.Text = win.find('cost')
+        if cost is not None:
+            display.update(f'Estimated Cost to Produce: '
+                           f'{utils.format_dollars(cost)}')
+        else:
+            display.update('Estimated Cost to Produce: N/A')
+
     def update_items():
         selector: sg.Listbox = win.find('item')
         selector.update(items)
@@ -270,7 +284,7 @@ def input_dish(manager: RestaurantManager) -> Tuple[bool, Optional[Dish]]:
         [sg.Text('Name:'), sg.InputText(key='name')],
         [sg.Listbox(items, size=(30, 5), key='item', tooltip='Ingredients',
                     select_mode=sg.LISTBOX_SELECT_MODE_SINGLE)],
-        [sg.Text('Estimated Cost to Produce: N/A')],
+        [sg.Text('Estimated Cost to Produce: N/A', size=(40, 1), key='cost')],
         [sg.Text('Price: $'), sg.InputText(key='price')],
         [sg.Submit(), sg.Cancel(), sg.Button('Add Ingredient', key='add'),
          sg.Button('Remove Ingredient', key='remove')]
@@ -414,13 +428,21 @@ def create_item(manager: Manager, quantity_minimum=0, no_cost=False,
                         sg.popup_ok('Could not understand the cost given.')
                         continue
 
-                    if values['priceunit']:
+                    if price > business.balance or price < 0:
+                        sg.popup_ok("Your purchase will exceed the business's balance.")
+                        continue
+                    elif values['priceunit']:
                         # Price is per unit; multiply to get total
                         price *= quantity
 
                 item = Item(name, quantity, unit, price)
                 if add_to_inventory:
-                    business.inventory.add(item)
+                    if price != 0:
+                        if not business.buy_item(item):
+                            sg.popup_ok('Failed to purchase the item.')
+                            continue
+                    else:
+                        business.inventory.add(item)
 
                 return False, item
 
@@ -488,14 +510,19 @@ def buy_existing_item(manager: Manager, invitem: InventoryItem, quantity_minimum
                     sg.popup_ok('Could not understand the cost given.')
                     continue
 
-                if values['priceunit']:
+                if price > business.balance:
+                    sg.popup_ok("Your purchase will exceed the business's balance.")
+                    continue
+                elif values['priceunit']:
                     # Price is per unit; multiply to get total
                     price *= quantity
 
                 item = Item(invitem.name, quantity, invitem.unit, price)
-                invitem.add(item)
-
-                return False, item
+                if not business.buy_item(item):
+                    sg.popup_ok('Failed to purchase the item.')
+                    return False, None
+                else:
+                    return False, item
 
     business = manager.business
     layout = [
@@ -527,14 +554,16 @@ def main_inventory(manager: Manager):
                 text: sg.Multiline = win.find('display')
                 if item:
                     selected_item = item[0]
-                    text.update(manager.describe_invitem(selected_item))
+                    text.update('{}\n{}'.format(
+                        selected_item.name, manager.describe_invitem(selected_item)
+                    ))
                 else:
                     selected_item = None
                     text.update('Nothing selected')
             elif event == 'buy':
-                # buy an existing item
+                # Buy an existing item
                 if selected_item is None:
-                    sg.popup_ok('Please select an item to buy more of.')
+                    sg.popup_ok('Please select an item.')
                     continue
 
                 stop, item = buy_existing_item(manager, selected_item)
@@ -556,7 +585,7 @@ def main_inventory(manager: Manager):
 
                 if sg.popup_ok_cancel(
                         'Are you sure you want to remove all of this item:',
-                        str(selected_item)) == 'Yes':
+                        str(selected_item)) == 'OK':
                     business.inventory.remove(selected_item)
                     update_items()
 
