@@ -646,7 +646,8 @@ def main_finances(manager: Manager):
                 update_transactions(event)
 
     def update_employees():
-        win.find('emp').update(f'Employees: {business.employee_count:,}')
+        frame: sg.Frame = win.find('emp')
+        frame.update(f'Employees: {business.employee_count:,}')
 
     def format_transactions(transactions: List[Transaction]):
         """Return a string of transactions.
@@ -678,9 +679,7 @@ def main_finances(manager: Manager):
     business = manager.business
 
     employee_layout = [
-        [sg.Text(f'Employees: {business.employee_count:,}', key='emp')],
-        [sg.Button('Increase', key='empadd')],
-        [sg.Button('Decrease', key='empsub')]
+        [sg.Button('Increase', key='empadd'), sg.Button('Decrease', key='empsub')]
     ]
     transactions = format_transactions(business.get_transactions(limit=30))
     transaction_layout = [
@@ -695,7 +694,7 @@ def main_finances(manager: Manager):
     ]
     layout = [
         create_menu(),
-        [sg.Frame('Employee Management', employee_layout),
+        [sg.Frame(f'Employees: {business.employee_count:,}', employee_layout, key='emp'),
          sg.Frame('Transactions', transaction_layout)],
         [sg.Button('Back', key='back')]
     ]
