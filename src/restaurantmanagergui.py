@@ -4,10 +4,11 @@ from .restaurantmanager import RestaurantManager
 GUI_AVAILABLE = True
 try:
     import PySimpleGUI as sg
-    from . import restaurantmanagerguiwindows as windows
 except ModuleNotFoundError:
     GUI_AVAILABLE = False
     sg = windows = None
+else:
+    from . import restaurantmanagerguiwindows as windows
 
 __all__ = ['GUI_AVAILABLE', 'RestaurantManagerGUI']
 

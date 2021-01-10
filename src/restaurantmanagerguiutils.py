@@ -2,7 +2,7 @@ from typing import Optional
 
 import PySimpleGUI as sg
 
-import utils
+from . import utils
 
 
 def input_x(converter, prompt: str, minimum=None, maximum=None,
