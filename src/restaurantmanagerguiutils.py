@@ -1,3 +1,4 @@
+import decimal
 from typing import Optional
 
 import PySimpleGUI as sg
@@ -5,24 +6,28 @@ import PySimpleGUI as sg
 from . import utils
 
 
-def input_x(converter, prompt: str, minimum=None, maximum=None,
+def input_x(converter, prompt: str, minimum=None, maximum=None, default='',
             error_convert: str = 'Could not understand your input.',
             error_minimum: str = 'Number is too low.',
             error_maximum: str = 'Number is too high.'):
     num = sg.popup_get_text(
         prompt,
+        default_text=default,
         no_titlebar=True,
         grab_anywhere=True,
         modal=True
     )
-    try:
-        num = converter(num)
-    except TypeError:
+
+    if num is None:
         # User pressed cancel
         return
+
+    try:
+        num = converter(num)
     except ValueError:
         sg.popup_ok(error_convert)
         return
+
     if minimum is not None and num < minimum:
         sg.popup_ok(error_minimum)
     elif maximum is not None and num > maximum:
@@ -42,7 +47,7 @@ def input_integer(prompt: str, minimum=None, maximum=None) -> Optional[int]:
     )
 
 
-def input_money(prompt: str, minimum=None, maximum=None) -> Optional[int]:
+def input_money(prompt: str, minimum=None, maximum=None) -> Optional[decimal.Decimal]:
     error_convert = 'Could not understand your amount.'
     error_minimum = None
     error_maximum = None

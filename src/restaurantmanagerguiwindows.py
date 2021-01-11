@@ -695,6 +695,7 @@ def main_inventory(manager: Manager):
 
 def main_finances(manager: Manager):
     def event_loop():
+        nonlocal tranview
         while True:
             event, values = win.read()
             if (stop := global_event_handler(manager, win, event, values)) is not None:
@@ -703,8 +704,26 @@ def main_finances(manager: Manager):
             if stop is not None:
                 return stop
             elif reload:
+                update_balance()
                 update_employees()
-                update_transactions('')
+                update_transactions()
+            elif event == 'baladd':
+                num = input_money('How much money are you adding?', minimum=0)
+                if num is not None and num != 0:
+                    business.deposit('Deposit by owner', num)
+                    update_balance()
+                    update_transactions()
+            elif event == 'balsub':
+                if business.balance <= 0:
+                    sg.popup_ok('There is no money left to withdraw.')
+                    continue
+
+                num = input_money('How much money are you taking?',
+                                  minimum=0, maximum=business.balance)
+                if num is not None and num != 0:
+                    business.withdraw('Withdrawal by owner', num)
+                    update_balance()
+                    update_transactions()
             elif event == 'empadd':
                 num = input_integer('How many employees are you adding?',
                                     minimum=0)
@@ -722,7 +741,12 @@ def main_finances(manager: Manager):
                     business.employee_count -= num
                     update_employees()
             elif event.startswith('tranview'):
-                update_transactions(event)
+                tranview = event
+                update_transactions()
+
+    def update_balance():
+        frame: sg.Frame = win.find('bal')
+        frame.update(f'Balance: {utils.format_dollars(business.balance)}')
 
     def update_employees():
         frame: sg.Frame = win.find('emp')
@@ -740,13 +764,13 @@ def main_finances(manager: Manager):
 
         return '\n'.join(lines)
 
-    def update_transactions(event: str):
+    def update_transactions():
         nonlocal transactions
         type_ = None
         key = None
-        if event == 'tranviewrev':
+        if tranview == 'tranviewrev':
             type_ = TransactionType.SALES
-        elif event == 'tranviewexp':
+        elif tranview == 'tranviewexp':
             key = lambda t: t.dollars < 0
 
         transactions = format_transactions(business.get_transactions(
@@ -756,9 +780,13 @@ def main_finances(manager: Manager):
         display.update(transactions)
 
     business = manager.business
+    tranview = 'tranviewall'
 
     employee_layout = [
         [sg.Button('Increase', key='empadd'), sg.Button('Decrease', key='empsub')]
+    ]
+    balance_layout = [
+        [sg.Button('Increase', key='baladd'), sg.Button('Decrease', key='balsub')]
     ]
     transactions = format_transactions(business.get_transactions(limit=30))
     transaction_layout = [
@@ -772,9 +800,14 @@ def main_finances(manager: Manager):
          sg.Radio('Expenses', 'tranview', key='tranviewexp', enable_events=True)]
     ]
     layout = [
-        create_menu(),
-        [sg.Frame(f'Employees: {business.employee_count:,}', employee_layout, key='emp'),
-         sg.Frame('Transactions', transaction_layout)],
+        create_menu(), [
+            sg.Column([
+                [sg.Frame(f'Employees: {business.employee_count:,}', employee_layout, key='emp')],
+                [sg.Frame(f'Balance: {utils.format_dollars(business.balance)}',
+                          balance_layout, key='bal')]
+            ]),
+            sg.Frame('Transactions', transaction_layout)
+        ],
         [sg.Button('Back', key='back')]
     ]
 
