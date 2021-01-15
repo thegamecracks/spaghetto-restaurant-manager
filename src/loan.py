@@ -106,13 +106,13 @@ class Loan:
         """Return the next payment to be spent (normal_payment or
         final_payment based on remaining payments).
 
-        By default, this is assumed to be after the business has stepped,
-        and therefore remaining_weeks would have decremented. In this case,
-        the final payment should be returned when remaining_payments is 0.
+        By default, this is assumed to be before the business has stepped.
+        In this case, the final payment is returned when remaining_payments
+        is 1.
 
-        However in the case that you are calculating this before time has
-        stepped, you should set after_step to False so the final payment
-        is returned when remaining_payments is 1.
+        If this is being calculated after time has stepped, after_step
+        should be set to True so the final payment is returned after
+        remaining_payments was decremented (0).
 
         Args:
             after_step (bool): If True, the final payment is returned
@@ -123,7 +123,7 @@ class Loan:
             decimal.Decimal
 
         """
-        if self.remaining_payments < 2 - after_step:
+        if self.remaining_payments < 2 - bool(after_step):
             return self.final_payment
         return self.normal_payment
 
